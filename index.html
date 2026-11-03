@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiblioSign 3D CAD & Bambu Studio .3MF/.STL Exporter</title>
+    
+    <!-- Tailwind CSS vía CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700&family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&family=Montserrat:wght@700;800&family=Oswald:wght@700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- OpenType.js para soporte completo de tildes UTF-8 (Á, É, Í, Ó, Ú, Ñ) -->
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    
+    <!-- JSZip para empaquetar archivos nativos .3MF Multi-Objeto -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+    <!-- Importmap para Three.js y addons oficiales -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- Estilos locales del proyecto -->
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+
+    <!-- Notificación Toast Flotante -->
+    <div id="toast-notification" class="fixed bottom-5 right-5 z-50 pointer-events-none opacity-0 translate-y-3 transition-all duration-300 bg-slate-900/95 border border-emerald-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 max-w-md">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+            <div id="toast-title" class="text-xs font-bold text-emerald-400">Archivo Generado</div>
+            <div id="toast-desc" class="text-[11px] text-slate-300">Listo para abrir en Bambu Studio / OrcaSlicer</div>
+        </div>
+    </div>
+
+    <!-- Modal Guía Bambu Studio Multicolor -->
+    <div id="bambu-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <i data-lucide="palette" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Cómo cambiar el color de cada parte en Bambu Studio</h3>
+                        <p class="text-xs text-slate-400">Asignar colores de filamento AMS sin pintar manualmente</p>
+                    </div>
+                </div>
+                <button onclick="window.toggleBambuModal(false)" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <div class="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-1.5">
+                    <div class="font-bold text-emerald-300 flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>OPCIÓN A (Recomendada): Descargar .3MF Multi-Pieza</span>
+                    </div>
+                    <p>El formato <strong>.3MF</strong> guarda internamente cada componente separado (Base, Letras, Acentos o Módulos Colgantes):</p>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-200 pl-1">
+                        <li>Abre el archivo <strong>.3MF</strong> en <strong>Bambu Studio</strong> o <strong>OrcaSlicer</strong>.</li>
+                        <li>En el panel izquierdo, cambia a la pestaña <strong>"Objetos" (Objects)</strong>.</li>
+                        <li>Haz clic en el número de filamento al lado de cada pieza para asignarle el color de tu AMS.</li>
+                    </ol>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700 space-y-1.5">
+                    <div class="font-bold text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                        <span>OPCIÓN B: Descargar los 3 archivos STL y arrastrarlos juntos</span>
+                    </div>
+                    <p>Si prefieres usar <code>.STL</code>, descarga <strong>STL Base</strong>, <strong>STL Letras</strong> y <strong>STL Acentos</strong>. Selecciónalos los 3 a la vez y arrástralos dentro de Bambu Studio. Cuando pregunte <em>"¿Cargar estos archivos como un único objeto con varias partes?"</em>, elige <strong>SÍ</strong>.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="window.toggleBambuModal(false)" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-xl transition">
+                    Entendido, volver al diseñador
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESPLEGABLE: Consejos Técnicos de Impresión 3D y Bambu Studio (Reubicado de la Imagen 1) -->
+    <div id="tech-tips-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Guía Rápida & Consejos Técnicos de Impresión 3D</h3>
+                        <p class="text-xs text-slate-400">Detalles de ingeniería aplicados a este diseñador CAD</p>
+                    </div>
+                </div>
+                <button onclick="window.toggleTechTipsModal(false)" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Las 3 tarjetas de la Imagen 1 ahora en modal limpio -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <div class="bg-slate-800/60 border border-emerald-500/40 rounded-xl p-3.5 flex flex-col gap-2">
+                    <div class="flex items-center gap-2 text-emerald-400">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                            <i data-lucide="check-check" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Solucionado: Multicolor en Bambu Studio</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">
+                        Al descargar el <strong>.3MF Multi-Pieza</strong>, Bambu Studio detecta cada componente por separado en la pestaña <em>Objetos</em>. Así cambias el color de las letras, acentos y base con un clic sin pintar a mano.
+                    </p>
+                </div>
+
+                <div class="bg-slate-800/60 border border-amber-500/40 rounded-xl p-3.5 flex flex-col gap-2">
+                    <div class="flex items-center gap-2 text-amber-400">
+                        <div class="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                            <i data-lucide="languages" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Tildes y Ñ 100% Vectoriales (UTF-8)</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">
+                        Las 5 fuentes institucionales procesan glifos OpenType reales para que palabras como <strong>INVESTIGACIÓN</strong>, <strong>FILOSOFÍA</strong> o <strong>ESPAÑOL</strong> conserven sus tildes con el mismo bisel y relieve.
+                    </p>
+                </div>
+
+                <div class="bg-slate-800/60 border border-sky-500/40 rounded-xl p-3.5 flex flex-col gap-2">
+                    <div class="flex items-center gap-2 text-sky-400">
+                        <div class="w-7 h-7 rounded-lg bg-sky-500/20 flex items-center justify-center shrink-0">
+                            <i data-lucide="combine" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-xs font-bold text-white">Arrastrar STL1 + STL2 + STL3 juntos</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">
+                        Los botones <strong>STL 1: Base</strong>, <strong>STL 2: Letras</strong> y <strong>STL 3: Acentos</strong> comparten las mismas coordenadas exactas. Si los arrastras juntos a Bambu Studio se ensamblan solos.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+                <span>Placa de impresión calibrada a escala 1:1 real (25 cm × 25 cm)</span>
+                <button onclick="window.toggleTechTipsModal(false)" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-xl transition">
+                    Cerrar ventana
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Exportación de Plantilla para Imprimir en Papel (PNG Fondo Blanco) -->
+    <div id="paper-proof-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-indigo-500/40 rounded-2xl max-w-4xl w-full p-5 sm:p-6 space-y-4 shadow-2xl flex flex-col max-h-[92vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Exportar Plantilla para Imprimir en Papel (PNG Fondo Blanco)</h3>
+                        <p class="text-xs text-slate-400">Prueba diferentes estilos y combinaciones de color en físico antes de gastar filamento 3D</p>
+                    </div>
+                </div>
+                <button onclick="window.closePaperProofModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Opciones y Modo -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1.5">Modo de Vista de la Plantilla:</label>
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer hover:border-indigo-500 transition">
+                            <input type="radio" name="proof-view-mode" value="orthographic" checked onchange="window.updatePaperProofPreview()" class="accent-indigo-500">
+                            <span class="text-white font-medium">Plano Frontal 1:1 (Recortable)</span>
+                        </label>
+                        <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer hover:border-indigo-500 transition">
+                            <input type="radio" name="proof-view-mode" value="perspective" onchange="window.updatePaperProofPreview()" class="accent-indigo-500">
+                            <span class="text-white font-medium">Perspectiva 3D con Sombra</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex flex-col justify-between gap-1.5">
+                    <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-200">
+                        <input type="checkbox" id="proof-guides-toggle" checked onchange="window.updatePaperProofPreview()" class="w-4 h-4 rounded accent-indigo-500">
+                        <span>Incluir marcas de corte L, cotas milimétricas y regla de calibración</span>
+                    </label>
+
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-700/60">
+                        <span class="text-[11px] text-slate-400">Generar usando cada fuente de letra:</span>
+                        <button id="btn-batch-fonts" onclick="window.runBatchFontComparison()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span>Generar las 6 Fuentes (1 por fuente)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progreso de generación por lotes (Oculto por defecto) -->
+            <div id="paper-proof-batch-progress" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between">
+                <div class="flex items-center gap-2.5 text-amber-300 text-xs font-bold">
+                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-amber-400"></i>
+                    <span id="paper-proof-batch-text">Generando imágenes con cada tipografía...</span>
+                </div>
+                <span class="text-[10px] text-slate-400 font-mono">Renderizando en alta definición</span>
+            </div>
+
+            <!-- Previsualización Individual de la Imagen con Fondo Blanco -->
+            <div id="paper-proof-single-view" class="relative flex-1 min-h-[280px] max-h-[440px] bg-white rounded-xl border border-slate-300 overflow-hidden flex items-center justify-center p-2 shadow-inner">
+                <div id="paper-proof-spinner" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex items-center justify-center z-10 hidden">
+                    <div class="flex items-center gap-2 text-indigo-700 font-bold text-xs">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                        <span>Generando render en alta resolución...</span>
+                    </div>
+                </div>
+                <img id="paper-proof-img" src="" alt="Previsualización de Plantilla de Papel" class="max-w-full max-h-full object-contain transition-opacity duration-200">
+            </div>
+
+            <!-- Galería Comparativa de las 6 Fuentes (Oculta por defecto) -->
+            <div id="paper-proof-gallery-view" class="hidden flex-1 overflow-y-auto max-h-[440px] space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <button onclick="window.showSingleProofView()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1">
+                            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                            <span>Vista individual</span>
+                        </button>
+                        <h4 class="text-xs font-bold text-white">Comparativa de las 6 Tipografías</h4>
+                    </div>
+                    <button onclick="window.downloadAllFontProofsBatch()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs px-3 py-1 rounded-lg transition flex items-center gap-1.5 shadow">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>Descargar Todas (6 PNG)</span>
+                    </button>
+                </div>
+                <div id="paper-proof-gallery-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <!-- Tarjetas de las 6 fuentes generadas dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+                <div class="flex items-center gap-2 text-xs text-slate-400">
+                    <i data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
+                    <span>Resolución 2400 × 1600 px (~300 DPI) con fondo blanco puro</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="window.closePaperProofModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs px-4 py-2.5 rounded-xl transition">
+                        Cerrar
+                    </button>
+                    <button id="btn-download-proof-modal" onclick="window.downloadPaperProofFromModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Descargar Imagen PNG (Fondo Blanco)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra Superior -->
+    <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <i data-lucide="box" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">BiblioSign 3D CAD & Bambu Studio Exporter</h1>
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Cama 25 cm² + .3MF Multicolor</span>
+                </div>
+                <p class="text-xs text-slate-400">Señalética institucional y rótulos colgantes modulares para anaqueles</p>
+            </div>
+        </div>
+
+        <!-- Botones de Acción y Navegación entre Espacios -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Enlace al Visor Ejecutivo para Jefatura / Terceros -->
+            <a href="./visor.html" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 transition" title="Abrir la página de presentación ejecutiva para enviar a jefatura (sin controles de edición)">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Visor para Jefatura</span>
+                <span class="sm:hidden">Visor</span>
+            </a>
+
+            <!-- Botón de Exportar a Papel (Fondo Blanco) -->
+            <button onclick="window.openPaperProofModal()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition" title="Exportar plantilla en imagen PNG con fondo blanco para probar en papel">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Imprimir en Papel (PNG)</span>
+            </button>
+
+            <!-- Botón para abrir el panel desplegable de consejos (Liberando espacio vertical del 3D) -->
+            <button onclick="window.toggleTechTipsModal(true)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition" title="Ver guía de impresión 3D y consejos">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Guía & Consejos Bambu</span>
+            </button>
+
+            <!-- Pestañas de Espacios de Trabajo -->
+            <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+                <button id="tab-design" onclick="window.switchMainTab('design')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                    <span>Letreros Sobremesa</span>
+                </button>
+                <button id="tab-hanging" onclick="window.switchMainTab('hanging')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white relative">
+                    <i data-lucide="git-branch" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span>Rótulos Colgantes Anaquel</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 absolute -top-0.5 -right-0.5"></span>
+                </button>
+                <button id="tab-pitch" onclick="window.switchMainTab('pitch')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white">
+                    <i data-lucide="briefcase" class="w-3.5 h-3.5"></i>
+                    <span>Propuesta Horas</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL: VISOR 3D COMPARTIDO + PANELES LATERALES ESPECÍFICOS -->
+    <div class="flex-1 flex flex-col lg:grid lg:grid-cols-12 min-h-0">
+        
+        <!-- ========================================================================= -->
+        <!-- PANEL LATERAL 1: CONTROLES DE LETREROS DE SOBREMESA Y ANAQUEL FIJO       -->
+        <!-- ========================================================================= -->
+        <aside id="view-design" class="lg:col-span-4 xl:col-span-4 bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto max-h-[calc(100vh-61px)] space-y-3.5">
+            
+            <!-- Barra Superior de Compactación Rápida -->
+            <div class="flex items-center justify-between bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-2 text-xs">
+                <span class="font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>Parámetros de Diseño</span>
+                </span>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="window.collapseAllSections()" class="text-[10px] bg-slate-900 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1" title="Plegar todas las secciones para ahorrar espacio vertical">
+                        <i data-lucide="chevrons-up" class="w-3 h-3"></i>
+                        <span>Plegar Todo</span>
+                    </button>
+                    <button type="button" onclick="window.expandAllSections()" class="text-[10px] bg-slate-900 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1" title="Desplegar todas las secciones">
+                        <i data-lucide="chevrons-down" class="w-3 h-3"></i>
+                        <span>Desplegar Todo</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 1. Texto con soporte completo de Tildes y Ñ -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl overflow-hidden transition-all shadow-sm">
+                <button type="button" onclick="window.toggleSectionAccordion('sec-texto')" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="type" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">1. Texto y Subtítulo (Con Tildes)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="font-loading-badge" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Cargando fuentes UTF-8...</span>
+                        <i id="icon-sec-texto" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                    </div>
+                </button>
+
+                <div id="content-sec-texto" class="p-3.5 pt-0 space-y-3 border-t border-slate-700/40">
+                    <div class="grid grid-cols-1 gap-2">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-[11px] text-slate-400">Texto Principal (Enter o <code class="text-amber-300">/</code> para varias líneas)</label>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="window.insertAccentChar('\n')" class="text-[10px] bg-indigo-900/80 hover:bg-indigo-700 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-500/40 font-bold" title="Insertar salto de línea (escribir abajo)">↵ 2L</button>
+                                    <button type="button" onclick="window.insertAccentChar('Á')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Á</button>
+                                    <button type="button" onclick="window.insertAccentChar('É')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">É</button>
+                                    <button type="button" onclick="window.insertAccentChar('Í')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Í</button>
+                                    <button type="button" onclick="window.insertAccentChar('Ó')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ó</button>
+                                    <button type="button" onclick="window.insertAccentChar('Ú')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ú</button>
+                                    <button type="button" onclick="window.insertAccentChar('Ñ')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ñ</button>
+                                </div>
+                            </div>
+                            <textarea id="sign-text" rows="2" maxlength="90"
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-white font-bold tracking-wider uppercase text-xs sm:text-sm outline-none transition font-mono leading-tight resize-y"
+                                placeholder="Ej: SECCIÓN&#10;GUATEMALA (o separa con /)" oninput="window.triggerRebuild()">INVESTIGACIÓN</textarea>
+                            <span class="text-[10px] text-slate-500 block mt-0.5">Escribe en varias líneas pulsando Enter para textos largos que excedan una sola placa.</span>
+                        </div>
+
+                        <div class="grid grid-cols-12 gap-2">
+                            <div class="col-span-8">
+                                <label class="text-[11px] text-slate-400 block mb-1">Subtítulo / Clasificación Dewey</label>
+                                <input id="sign-subtext" type="text" value="SECCIÓN 001 • CONSULTA" maxlength="48"
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 uppercase outline-none"
+                                    oninput="window.triggerRebuild()">
+                            </div>
+                            <div class="col-span-4 flex items-end">
+                                <label class="flex items-center justify-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 w-full">
+                                    <input id="show-subtext" type="checkbox" onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                                    <span>Incluir</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- PANEL DEDICADO DE PERSONALIZACIÓN DEL SUBTÍTULO (Fuente, Color, Tamaño, Interlineado) -->
+                        <div id="subtext-options-panel" class="hidden bg-slate-950/80 border border-amber-500/30 rounded-xl p-3 space-y-2.5">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                                <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                                    <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+                                    Personalizar Subtítulo
+                                </span>
+                                <span class="text-[10px] text-slate-400">Independiente</span>
+                            </div>
+
+                            <!-- Selector de Tipografía del Subtítulo -->
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-1">Tipografía del Subtítulo:</label>
+                                <select id="param-sub-font" onchange="window.triggerRebuild()" class="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white outline-none">
+                                    <option value="arial">1. Arial Bold — Estándar Institucional</option>
+                                    <option value="montserrat">2. Montserrat Bold — Geométrica Moderna</option>
+                                    <option value="cinzel">3. Cinzel Bold — Romana Monumental</option>
+                                    <option value="baskerville">4. Libre Baskerville — Editorial</option>
+                                    <option value="oswald" selected>5. Oswald Bold — Técnica DIN (Recomendada)</option>
+                                    <option value="playfair">6. Playfair Display — Alta Imprenta</option>
+                                    <option value="bebasneue">7. Bebas Neue — Display Condensada Impacto</option>
+                                </select>
+                            </div>
+
+                            <!-- Color del Subtítulo -->
+                            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <div>
+                                    <label class="text-[10px] text-slate-300 block font-semibold">Color del Filamento del Subtítulo:</label>
+                                    <span id="lbl-color-subtext" class="text-[10px] font-mono text-amber-400">#B07D4F</span>
+                                </div>
+                                <input type="color" id="color-subtext" value="#b07d4f" onchange="window.triggerRebuild()" class="w-10 h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                            </div>
+
+                            <!-- Tamaño e Interlineado / Separación vertical -->
+                            <div class="grid grid-cols-2 gap-2.5 pt-1">
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Tamaño Subtítulo</span>
+                                        <span id="lbl-sub-size" class="font-mono text-amber-400 font-bold">10 mm</span>
+                                    </div>
+                                    <input id="param-sub-size" type="range" min="6" max="22" value="10" oninput="window.triggerRebuild()" class="w-full">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Interlineado (Gap)</span>
+                                        <span id="lbl-sub-gap" class="font-mono text-amber-400 font-bold">0 mm</span>
+                                    </div>
+                                    <input id="param-sub-gap" type="range" min="-12" max="14" step="1" value="0" oninput="window.triggerRebuild()" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PANEL DE ALINEACIÓN Y DESPLAZAMIENTO FINO DEL TEXTO -->
+                        <div class="bg-slate-900/70 border border-slate-700/80 rounded-xl p-3 space-y-2.5">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                                <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                                    <i data-lucide="move" class="w-3.5 h-3.5 text-amber-400"></i>
+                                    Alineación y Desplazamiento del Texto
+                                </span>
+                                <button type="button" onclick="window.resetTextOffsets()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded-lg border border-slate-700 transition font-semibold" title="Restablecer posición al centro automático">
+                                    Centrar (0)
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Horizontal (X)</span>
+                                        <span id="lbl-text-offset-x" class="font-mono text-amber-400 font-bold">0 mm</span>
+                                    </div>
+                                    <input id="param-text-offset-x" type="range" min="-60" max="60" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="Mueve el texto hacia la izquierda (-) o hacia la derecha (+)">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Vertical (Y)</span>
+                                        <span id="lbl-text-offset-y" class="font-mono text-amber-400 font-bold">0 mm</span>
+                                    </div>
+                                    <input id="param-text-offset-y" type="range" min="-25" max="25" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="Mueve el texto hacia abajo (-) o hacia arriba (+)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MIS CONFIGURACIONES GUARDADAS (Persistencia & Presets del Usuario) -->
+                    <div class="bg-slate-900/60 border border-amber-500/30 rounded-xl p-3 space-y-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                                <i data-lucide="bookmark-check" class="w-3.5 h-3.5 text-amber-400"></i>
+                                Mis Configuraciones Guardadas
+                            </span>
+                            <span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono" title="Tus cambios se auto-guardan continuamente">Auto-Guardado Activo</span>
+                        </div>
+
+                        <!-- Formulario para guardar la configuración actual -->
+                        <div class="flex items-center gap-1.5">
+                            <input id="new-config-name" type="text" maxlength="32" placeholder="Nombre (ej: Laboratorio USAC)"
+                                class="flex-1 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none">
+                            <button type="button" onclick="window.saveCurrentConfigWithPrompt()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-1.5 px-3 rounded-lg transition flex items-center gap-1 shrink-0 shadow">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                <span>Guardar</span>
+                            </button>
+                            <button type="button" onclick="window.shareCurrentToVisor()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-1.5 px-2.5 rounded-lg transition flex items-center gap-1 shrink-0 shadow" title="Generar enlace de este diseño para enviar a mi jefe">
+                                <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                                <span class="hidden sm:inline">Compartir</span>
+                            </button>
+                        </div>
+
+                        <!-- Lista dinámica de configuraciones guardadas -->
+                        <div id="saved-configs-container" class="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                            <!-- Inyectado por renderUserPresetsList() -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] text-slate-400 block mb-1.5">Presets Rápidos del Sistema:</span>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="window.setQuickPreset('JEFE DE BIBLIOTECA', 'DIRECCIÓN GENERAL', 'wedge', false, 'cinzel', 'oxford')" class="text-[11px] bg-amber-800/60 hover:bg-amber-700 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg transition font-semibold">JEFE DE BIBLIOTECA</button>
+                            <button type="button" onclick="window.setQuickPreset('COORDINADOR / DE SERVICIOS ESPECIALES', 'ATENCIÓN ESPECIALIZADA', 'wedge', false, 'montserrat', 'oxford')" class="text-[11px] bg-amber-800/60 hover:bg-amber-700 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg transition font-semibold">COORD. SERVICIOS ESP.</button>
+                            <button type="button" onclick="window.setQuickPreset('SECRETARÍA DE JEFATURA', 'GESTIÓN Y RECEPCIÓN', 'wedge', false, 'montserrat', 'nordic')" class="text-[11px] bg-amber-800/60 hover:bg-amber-700 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg transition font-semibold">SECRETARÍA JEFATURA</button>
+                            <button type="button" onclick="window.setQuickPreset('SECCIÓN / DE PERIÓDICOS', 'HEMEROTECA CENTRAL', 'ceiling', false, 'arial', 'ceiling_indigo')" class="text-[11px] bg-indigo-800/70 hover:bg-indigo-700 text-indigo-200 border border-indigo-400/50 px-2.5 py-1 rounded-lg transition font-semibold">TECHO: PERIÓDICOS</button>
+                            <button type="button" onclick="window.setQuickPreset('FOLLETOS / SECCIÓN GUATEMALA', 'COLECCIÓN NACIONAL', 'ceiling', false, 'arial', 'ceiling_indigo')" class="text-[11px] bg-indigo-800/70 hover:bg-indigo-700 text-indigo-200 border border-indigo-400/50 px-2.5 py-1 rounded-lg transition font-semibold">TECHO: FOLLETOS</button>
+                            <button type="button" onclick="window.setQuickPreset('FILOSOFÍA', '100 • PENSAMIENTO CLÁSICO', 'filigree', true, 'cinzel', 'oxford')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">CAPITULAR</button>
+                            <button type="button" onclick="window.setQuickPreset('NOVELA NEGRA', '823 • NARRATIVA', 'shelf_clip', true, 'oswald')" class="text-[11px] bg-emerald-800/60 hover:bg-emerald-700 text-emerald-200 border border-emerald-500/40 px-2.5 py-1 rounded-lg transition">CANTO ANAQUEL</button>
+                            <button type="button" onclick="window.setQuickPreset('INVESTIGACIÓN', 'SECCIÓN 001 • TESIS', 'modular', false, 'montserrat')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">MAKER</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Tipografías Institucionales y Arquitectónicas -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl overflow-hidden transition-all shadow-sm">
+                <button type="button" onclick="window.toggleSectionAccordion('sec-tipografia')" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">2. Tipografía del Título Principal</span>
+                    </div>
+                    <i id="icon-sec-tipografia" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                </button>
+
+                <div id="content-sec-tipografia" class="p-3.5 pt-0 space-y-2.5 border-t border-slate-700/40">
+                    <select id="param-font" onchange="window.triggerRebuild()" class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none">
+                        <option value="arial" selected>1. Arial Bold — Estándar Institucional (Dígitos y números clásicos)</option>
+                        <option value="montserrat">2. Montserrat Bold — Geométrica Arquitectónica (Moderna / MAKER)</option>
+                        <option value="cinzel">3. Cinzel Bold — Romana Monumental Universitaria (Solemne / Clásica)</option>
+                        <option value="baskerville">4. Libre Baskerville Bold — Editorial Académica de Biblioteca</option>
+                        <option value="oswald">5. Oswald Bold — Técnica Condensada DIN (Señalética de Pasillos)</option>
+                        <option value="playfair">6. Playfair Display Bold — Alta Imprenta Institucional (Capitulares)</option>
+                        <option value="bebasneue">7. Bebas Neue — Display Condensada Impacto (Rótulos altos y pasillos)</option>
+                    </select>
+                    <p id="font-desc-helper" class="text-[11px] text-slate-400 leading-snug">
+                        Trazo geométrico de alta precisión arquitectónica. Muy limpia para fácil lectura a distancia.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 3. Arquitectura CAD del Letrero (Los 7 Estilos Estructurales) -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl overflow-hidden transition-all shadow-sm">
+                <button type="button" onclick="window.toggleSectionAccordion('sec-estilo')" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">3. Diseño Estructural (7 Estilos)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">+Techo Nuevo</span>
+                        <i id="icon-sec-estilo" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                    </div>
+                </button>
+
+                <div id="content-sec-estilo" class="p-3.5 pt-0 space-y-2.5 border-t border-slate-700/40">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="window.selectStyle('modular')" id="style-btn-modular" class="text-left p-2.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Bloques MAKER</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Modular</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Cubos escalonados con letra en alto relieve.</p>
+                        </button>
+
+                        <button type="button" onclick="window.selectStyle('solid')" id="style-btn-solid" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Corpóreo ABC</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Monolito</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Escudos monolíticos con collarín y peana escalonada.</p>
+                        </button>
+
+                        <button type="button" onclick="window.selectStyle('filigree')" id="style-btn-filigree" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Capitular Clásica</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Iluminada</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Cartela con frontón, rosetones florales y Tabula Ansata.</p>
+                        </button>
+
+                        <button type="button" onclick="window.selectStyle('plaque')" id="style-btn-plaque" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Placa Wayfinding</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Dewey</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Placa institucional con barra de color lateral.</p>
+                        </button>
+
+                        <!-- ESTILO 5: CLIP PARA CANTO DE ANAQUEL (Pinza Trasera 19mm) -->
+                        <button type="button" onclick="window.selectStyle('shelf_clip')" id="style-btn-shelf_clip" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Canto Anaquel</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">Pinza 19mm</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Pinza trasera en C (opuesta a las letras) para balda.</p>
+                        </button>
+
+                        <!-- ESTILO 6: CUÑA EJECUTIVA DE ESCRITORIO (Menos Inclinada) -->
+                        <button type="button" onclick="window.selectStyle('wedge')" id="style-btn-wedge" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Cuña Inclinada</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Escritorio 12°</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Inclinación suave para escritorios de jefatura y coordinación.</p>
+                        </button>
+
+                        <!-- NUEVO ESTILO 7: COLGANTE DE TECHO (Como en las imágenes subidas) -->
+                        <button type="button" onclick="window.selectStyle('ceiling')" id="style-btn-ceiling" class="col-span-2 text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-indigo-500/60 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <i data-lucide="arrow-up-from-line" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                    <span>Colgante de Techo (Aéreo con Tensores)</span>
+                                </span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/25 text-indigo-300 font-bold">Nuevo • Techo</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Panel panorámico con perfiles de aluminio superior/inferior, sello central y argollas para colgar del techo.</p>
+                        </button>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-[11px]">
+                        <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                            <input id="stagger-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                            <span>Desfase dinámico</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                            <input id="stand-rail-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                            <span>Riel de soporte</span>
+                        </label>
+                    </div>
+
+                    <!-- PANEL CONDICIONAL: PERSONALIZAR CUÑA EJECUTIVA DE ESCRITORIO -->
+                    <div id="wedge-options-panel" class="hidden bg-slate-950/80 border border-amber-500/40 rounded-xl p-3 space-y-3 mt-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                                <i data-lucide="briefcase" class="w-3.5 h-3.5 text-amber-400"></i>
+                                Cuña Ejecutiva de Escritorio
+                            </span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Jefatura & Coordinación</span>
+                        </div>
+
+                        <div class="space-y-2.5 text-xs">
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                    <span class="text-slate-300">Ángulo de Inclinación (Menos inclinada)</span>
+                                    <span id="lbl-wedge-angle" class="font-mono text-amber-400 font-bold">12° (Suave Escritorio)</span>
+                                </div>
+                                <input id="param-wedge-angle" type="range" min="8" max="32" step="1" value="12" oninput="window.triggerRebuild()" class="w-full">
+                            </div>
+
+                            <label class="flex items-center gap-2 text-[11px] text-slate-200 cursor-pointer select-none bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                                <input id="wedge-multiline-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                                <span>Auto-dividir cargos largos en 2 líneas centradas</span>
+                            </label>
+
+                            <div>
+                                <span class="text-[10px] text-slate-400 block mb-1">Cargos Rápidos para Escritorio:</span>
+                                <div class="grid grid-cols-1 gap-1.5">
+                                    <button type="button" onclick="window.setQuickPreset('JEFE DE BIBLIOTECA', 'DIRECCIÓN GENERAL', 'wedge', false, 'cinzel', 'oxford')" class="text-left text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition font-bold flex items-center justify-between">
+                                        <span>1. JEFE DE BIBLIOTECA</span>
+                                        <span class="text-[9px] text-slate-400">1 Línea</span>
+                                    </button>
+                                    <button type="button" onclick="window.setQuickPreset('COORDINADOR / DE SERVICIOS ESPECIALES', 'COORDINACIÓN ACADÉMICA', 'wedge', false, 'montserrat', 'oxford')" class="text-left text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition font-bold flex items-center justify-between">
+                                        <span>2. COORDINADOR DE SERVICIOS ESPECIALES</span>
+                                        <span class="text-[9px] text-slate-400">2 Líneas</span>
+                                    </button>
+                                    <button type="button" onclick="window.setQuickPreset('SECRETARÍA DE JEFATURA', 'ATENCIÓN Y GESTIÓN', 'wedge', false, 'montserrat', 'nordic')" class="text-left text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition font-bold flex items-center justify-between">
+                                        <span>3. SECRETARÍA DE JEFATURA</span>
+                                        <span class="text-[9px] text-slate-400">2 Líneas</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANEL CONDICIONAL: PERSONALIZAR RÓTULO COLGANTE DE TECHO -->
+                    <div id="ceiling-options-panel" class="hidden bg-slate-950/80 border border-indigo-500/40 rounded-xl p-3 space-y-3 mt-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                                <i data-lucide="arrow-up-from-line" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                Personalizar Colgante de Techo
+                            </span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Tensores Aéreo</span>
+                        </div>
+
+                        <div class="space-y-2 text-xs">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Ancho Panel</span>
+                                        <button type="button" onclick="const w = document.getElementById('param-ceiling-width'); if(w){ delete w.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-indigo-300 px-1 rounded">Auto</button>
+                                        <span id="lbl-ceiling-width" class="font-mono text-indigo-400 font-bold">Auto</span>
+                                    </div>
+                                    <input id="param-ceiling-width" type="range" min="140" max="460" step="5" value="230" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Alto Panel</span>
+                                        <button type="button" onclick="const h = document.getElementById('param-ceiling-height'); if(h){ delete h.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-indigo-300 px-1 rounded">Auto</button>
+                                        <span id="lbl-ceiling-height" class="font-mono text-indigo-400 font-bold">Auto</span>
+                                    </div>
+                                    <input id="param-ceiling-height" type="range" min="60" max="160" step="2" value="95" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                                </div>
+                            </div>
+
+                            <!-- División en 2 partes para rótulos de techo grandes -->
+                            <div class="pt-1.5 border-t border-slate-800 space-y-2">
+                                <label class="flex items-center gap-2 cursor-pointer select-none">
+                                    <input id="ceiling-split-toggle" type="checkbox" onchange="const c = document.getElementById('ceiling-split-controls'); if (c) c.classList.toggle('hidden', !this.checked); window.triggerRebuild();" class="accent-indigo-500 rounded w-4 h-4">
+                                    <span class="text-[11px] font-bold text-white flex items-center gap-1">
+                                        <i data-lucide="puzzle" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                        Dividir en 2 Partes (Para rótulos de techo &gt; 25 cm)
+                                    </span>
+                                </label>
+
+                                <div id="ceiling-split-controls" class="hidden bg-slate-900/90 border border-indigo-500/30 rounded-lg p-2.5 space-y-2 text-[11px]">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <div class="flex justify-between mb-0.5 text-[10px]">
+                                                <span class="text-slate-300">Separar Ensamble</span>
+                                                <span id="lbl-ceiling-gap" class="font-mono text-indigo-400 font-bold">0 mm</span>
+                                            </div>
+                                            <input id="param-ceiling-gap" type="range" min="0" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full">
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between mb-0.5 text-[10px]">
+                                                <span class="text-slate-300">Posición Corte</span>
+                                                <span id="lbl-ceiling-offset" class="font-mono text-indigo-400 font-bold">0 mm</span>
+                                            </div>
+                                            <input id="param-ceiling-offset" type="range" min="-35" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-1.5 pt-1">
+                                        <button type="button" onclick="window.exportPlaquePartSTL('left')" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
+                                            <i data-lucide="download" class="w-3 h-3"></i>
+                                            <span>Parte 1: Izq (Macho)</span>
+                                        </button>
+                                        <button type="button" onclick="window.exportPlaquePartSTL('right')" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
+                                            <i data-lucide="download" class="w-3 h-3"></i>
+                                            <span>Parte 2: Der (Hembra)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANEL CONDICIONAL: PERSONALIZAR PLACA WAYFINDING (BORDES REDONDEADOS & ENSAMBLE) -->
+                    <div id="plaque-options-panel" class="hidden bg-slate-950/80 border border-emerald-500/40 rounded-xl p-3 space-y-3 mt-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                                <i data-lucide="layout" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                Personalizar Placa de Fondo
+                            </span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">Wayfinding</span>
+                        </div>
+
+                        <!-- Dimensiones personalizadas de la placa -->
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-slate-300">Ancho de Placa (Fondo)</span>
+                                        <button type="button" onclick="const w = document.getElementById('param-plaque-width'); if(w){ delete w.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-1 rounded transition" title="Restablecer al ancho automático del texto">Auto</button>
+                                    </div>
+                                    <span id="lbl-plaque-width" class="font-mono text-emerald-400 font-bold">Auto</span>
+                                </div>
+                                <input id="param-plaque-width" type="range" min="100" max="480" step="5" value="260" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Alto de Placa</span>
+                                        <button type="button" onclick="const h = document.getElementById('param-plaque-height'); if(h){ delete h.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-1 rounded transition" title="Restablecer a la altura automática">Auto</button>
+                                        <span id="lbl-plaque-height" class="font-mono text-emerald-400 font-bold">Auto</span>
+                                    </div>
+                                    <input id="param-plaque-height" type="range" min="35" max="150" step="2" value="75" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Radio Esquinas</span>
+                                        <span id="lbl-plaque-radius" class="font-mono text-emerald-400 font-bold">14 mm</span>
+                                    </div>
+                                    <input id="param-plaque-radius" type="range" min="2" max="30" step="1" value="14" oninput="window.triggerRebuild()" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DIVISIÓN EN 2 PARTES PARA IMPRESIÓN GRANDE CON ENCASTRE DE ROMPECABEZAS -->
+                        <div class="pt-2 border-t border-slate-800 space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input id="plaque-split-toggle" type="checkbox" onchange="const c = document.getElementById('plaque-split-controls'); if (c) c.classList.toggle('hidden', !this.checked); window.triggerRebuild();" class="accent-emerald-500 rounded w-4 h-4">
+                                <span class="text-[11px] font-bold text-white flex items-center gap-1">
+                                    <i data-lucide="puzzle" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    Dividir en 2 Partes (Encastre Rompecabezas)
+                                </span>
+                            </label>
+
+                            <div id="plaque-split-controls" class="hidden bg-slate-900/90 border border-emerald-500/30 rounded-lg p-2.5 space-y-2 text-[11px]">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <div class="flex justify-between mb-0.5 text-[10px]">
+                                            <span class="text-slate-300">Separar Ensamble</span>
+                                            <span id="lbl-plaque-gap" class="font-mono text-emerald-400 font-bold">0 mm</span>
+                                        </div>
+                                        <input id="param-plaque-gap" type="range" min="0" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="0 mm = Ensamblado cerrado; >0 mm = Vista explosionada de ensamble">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between mb-0.5 text-[10px]">
+                                            <span class="text-slate-300">Posición Corte</span>
+                                            <span id="lbl-plaque-offset" class="font-mono text-emerald-400 font-bold">0 mm</span>
+                                        </div>
+                                        <input id="param-plaque-offset" type="range" min="-35" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="Desplaza la costura entre letras para no cortar ningún glifo">
+                                    </div>
+                                </div>
+
+                                <div class="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-tight">
+                                    🧩 Conector tipo cola de milano / rompecabezas con 0.28 mm de holgura. Ensamble a presión firme sin necesidad de pegamento ni placas traseras.
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                                    <button type="button" onclick="window.exportPlaquePartSTL('left')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
+                                        <i data-lucide="download" class="w-3 h-3"></i>
+                                        <span>Parte 1: Izq (Macho)</span>
+                                    </button>
+                                    <button type="button" onclick="window.exportPlaquePartSTL('right')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
+                                        <i data-lucide="download" class="w-3 h-3"></i>
+                                        <span>Parte 2: Der (Hembra)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANEL CONDICIONAL: ESCUDOS INSTITUCIONALES 3D (USAC & BIBLIOTECA CENTRAL BC) -->
+                    <div id="institutional-logos-panel" class="hidden bg-slate-950/90 border border-amber-500/40 rounded-xl p-3 space-y-2.5 mt-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>
+                                Escudos Institucionales (USAC &amp; BC)
+                            </span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Oficial 3D</span>
+                        </div>
+
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <label class="text-[10px] text-slate-300 font-semibold block mb-1">Modo de Integración en Impresión 3D:</label>
+                                <select id="logo-mode-select" onchange="const cw = document.getElementById('param-ceiling-width'); const pw = document.getElementById('param-plaque-width'); if(cw) delete cw.dataset.touched; if(pw) delete pw.dataset.touched; window.triggerRebuild();" class="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white font-semibold outline-none cursor-pointer">
+                                    <option value="none">1. Sin Escudos (Panel Limpio)</option>
+                                    <option value="integrated">2. Integrados a los Lados (En la misma placa)</option>
+                                    <option value="socket_separate">3. Cajeado Guía + Imprimir Medallones Aparte (Recomendado 0.2/0.4mm)</option>
+                                    <option value="medallions_only">4. Solo Medallones Independientes (Sin modificar placa)</option>
+                                </select>
+                            </div>
+
+                            <!-- Botones rápidos de configuración de escudos -->
+                            <div class="flex flex-wrap gap-1">
+                                <button type="button" onclick="window.setLogoModeQuick('integrated', 'usac', 'biblioteca')" class="text-[10px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-semibold transition">USAC + BC Integrados</button>
+                                <button type="button" onclick="window.setLogoModeQuick('socket_separate', 'usac', 'biblioteca')" class="text-[10px] bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-semibold transition">Cajeado + Medallones Aparte</button>
+                                <button type="button" onclick="window.setLogoModeQuick('none', 'usac', 'biblioteca')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition">Limpio</button>
+                            </div>
+
+                            <div id="logo-active-controls" class="hidden space-y-2 pt-1.5 border-t border-slate-800/80">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-[10px] text-slate-400 block mb-0.5">Lado Izquierdo:</label>
+                                        <select id="logo-left-select" onchange="const cw = document.getElementById('param-ceiling-width'); const pw = document.getElementById('param-plaque-width'); if(cw) delete cw.dataset.touched; if(pw) delete pw.dataset.touched; window.triggerRebuild();" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-white outline-none">
+                                            <option value="usac" selected>Escudo USAC</option>
+                                            <option value="biblioteca">Biblioteca Central (BC)</option>
+                                            <option value="custom">Archivo Subido</option>
+                                            <option value="none">Ninguno</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] text-slate-400 block mb-0.5">Lado Derecho:</label>
+                                        <select id="logo-right-select" onchange="const cw = document.getElementById('param-ceiling-width'); const pw = document.getElementById('param-plaque-width'); if(cw) delete cw.dataset.touched; if(pw) delete pw.dataset.touched; window.triggerRebuild();" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-white outline-none">
+                                            <option value="biblioteca" selected>Biblioteca Central (BC)</option>
+                                            <option value="usac">Escudo USAC</option>
+                                            <option value="custom">Archivo Subido</option>
+                                            <option value="none">Ninguno</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Diámetro / Tamaño del Escudo</span>
+                                        <span id="lbl-logo-size" class="font-mono text-amber-400 font-bold">40 mm</span>
+                                    </div>
+                                    <input id="param-logo-size" type="range" min="26" max="64" step="2" value="40" oninput="const cw = document.getElementById('param-ceiling-width'); const pw = document.getElementById('param-plaque-width'); if(cw) delete cw.dataset.touched; if(pw) delete pw.dataset.touched; window.triggerRebuild();" class="w-full">
+                                </div>
+
+                                <div id="logo-separate-bed-row" class="hidden">
+                                    <label class="flex items-center gap-2 text-[11px] text-slate-200 cursor-pointer select-none bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                                        <input id="logo-show-separate-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                                        <span>Mostrar medallones aparte en la cama 3D</span>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                                    <button type="button" onclick="window.exportStandaloneMedallionsSTL()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1" title="Descarga únicamente los medallones de la USAC y Biblioteca para imprimirlos por separado con máxima calidad">
+                                        <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                                        <span>.STL Solo Medallones</span>
+                                    </button>
+                                    <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-semibold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer" title="Sube un archivo .PNG, .SVG o .STL para vectorizarlo en 3D">
+                                        <i data-lucide="upload" class="w-3.5 h-3.5 text-sky-400"></i>
+                                        <span>Subir SVG/PNG/STL</span>
+                                        <input id="input-custom-logo-file" type="file" accept=".png,.jpg,.jpeg,.webp,.svg,.stl" onchange="window.handleCustomLogoUpload(event)" class="hidden">
+                                    </label>
+                                </div>
+                                <div id="custom-logo-status" class="hidden text-[10px] text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Dimensiones Paramétricas y Validación con Cama de 25 cm (250 mm) -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl overflow-hidden transition-all shadow-sm">
+                <button type="button" onclick="window.toggleSectionAccordion('sec-medidas')" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="ruler" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">4. Medidas CAD (Cama 25 × 25 cm)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="bed-alert-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            ✅ Cabe en placa de 25 cm
+                        </span>
+                        <i id="icon-sec-medidas" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                    </div>
+                </button>
+
+                <div id="content-sec-medidas" class="p-3.5 pt-0 space-y-3 border-t border-slate-700/40">
+                    <!-- Botón de auto-ajuste al tamaño de cama de 25 cm -->
+                    <button id="btn-fit-bed" onclick="window.fitSignToBed()" class="hidden w-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold py-1.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5">
+                        <i data-lucide="minimize-2" class="w-3.5 h-3.5"></i>
+                        <span>Ajustar al límite de cama de 25 cm (Reducir automáticamente)</span>
+                    </button>
+
+                    <div class="space-y-2.5 text-xs">
+                        <!-- Control de Escala Global del Objeto -->
+                        <div class="bg-slate-950/70 border border-slate-700/60 rounded-xl p-2.5">
+                            <div class="flex justify-between mb-1 text-[11px]">
+                                <span class="text-amber-300 font-bold flex items-center gap-1">
+                                    <i data-lucide="scaling" class="w-3.5 h-3.5"></i>
+                                    Escala Global del Objeto
+                                </span>
+                                <span id="lbl-global-scale" class="font-mono text-amber-400 font-bold">100% (1.00x)</span>
+                            </div>
+                            <input id="param-global-scale" type="range" min="30" max="150" step="1" value="100" oninput="window.triggerRebuild()" class="w-full">
+                            <span class="text-[10px] text-slate-400 block mt-0.5">Reduce proporcionalmente todo el letrero para encajar textos largos en la cama de 25 cm.</span>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-0.5">
+                                <span class="text-slate-300">Altura de Letra (Tamaño Y)</span>
+                                <span id="lbl-letter-size" class="font-mono text-amber-400 font-bold">36 mm</span>
+                            </div>
+                            <input id="param-letter-size" type="range" min="10" max="75" value="36" oninput="window.triggerRebuild()" class="w-full">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <div class="flex justify-between mb-0.5">
+                                    <span class="text-slate-300">Grosor Base (Z1)</span>
+                                    <span id="lbl-base-depth" class="font-mono text-amber-400 font-bold">6 mm</span>
+                                </div>
+                                <input id="param-base-depth" type="range" min="2" max="16" value="6" oninput="window.triggerRebuild()" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-0.5">
+                                    <span class="text-slate-300">Relieve Letra (Z2)</span>
+                                    <span id="lbl-letter-depth" class="font-mono text-amber-400 font-bold">5 mm</span>
+                                </div>
+                                <input id="param-letter-depth" type="range" min="2" max="20" value="5" oninput="window.triggerRebuild()" class="w-full">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <div class="flex justify-between mb-0.5">
+                                    <span class="text-slate-300">Biselado 3D</span>
+                                    <span id="lbl-bevel" class="font-mono text-slate-300">0.8 mm</span>
+                                </div>
+                                <input id="param-bevel" type="range" min="0" max="2.0" step="0.2" value="0.8" oninput="window.triggerRebuild()" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-0.5">
+                                    <span class="text-slate-300">Espaciado</span>
+                                    <span id="lbl-spacing" class="font-mono text-slate-300">4 mm</span>
+                                </div>
+                                <input id="param-spacing" type="range" min="0" max="14" step="1" value="4" oninput="window.triggerRebuild()" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Paletas y NUEVA FUNCIONALIDAD: Guardar Pre-sets de Colores Personalizados -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl overflow-hidden transition-all shadow-sm">
+                <button type="button" onclick="window.toggleSectionAccordion('sec-colores')" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="palette" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">5. Colores y Pre-sets</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">localStorage</span>
+                        <i id="icon-sec-colores" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                    </div>
+                </button>
+
+                <div id="content-sec-colores" class="p-3.5 pt-0 space-y-3 border-t border-slate-700/40">
+                    <!-- Selectores de color individuales -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Filamento Letras</label>
+                            <input type="color" id="color-face" value="#f5f5f0" onchange="window.disableMultiAndColors()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Filamento Acento</label>
+                            <input type="color" id="color-accent" value="#b07d4f" onchange="window.updateColorsOnly()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Filamento Base</label>
+                            <input type="color" id="color-base" value="#1e242b" onchange="window.updateColorsOnly()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                        </div>
+                    </div>
+
+                    <!-- Creador de Pre-set Personalizado -->
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-700/80 space-y-2">
+                        <label class="text-[11px] font-semibold text-slate-300 block">Guardar combinación actual como nuevo Preset:</label>
+                        <div class="flex gap-1.5">
+                            <input id="input-new-preset-name" type="text" placeholder="Ej: Sala General / Oro y Roble"
+                                class="flex-1 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-xs text-white outline-none">
+                            <button type="button" onclick="window.saveCurrentPalette()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1 rounded-lg transition flex items-center gap-1 shrink-0">
+                                <i data-lucide="bookmark-plus" class="w-3.5 h-3.5"></i>
+                                <span>Guardar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Presets Guardados por el Usuario -->
+                    <div class="space-y-1.5">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Tus Paletas Guardadas:</span>
+                        <div id="user-palettes-list" class="space-y-1.5 max-h-32 overflow-y-auto">
+                            <!-- Generado dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Paletas Predeterminadas -->
+                    <div class="pt-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Paletas Institucionales Sugeridas:</span>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" onclick="window.applyPalette('nordic')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                                <span class="text-[11px] font-semibold text-white">Nórdico / MAKER</span>
+                                <div class="flex -space-x-1">
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f5f5f0"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#b07d4f"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#1e242b"></span>
+                                </div>
+                            </button>
+                            <button type="button" onclick="window.applyPalette('oxford')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                                <span class="text-[11px] font-semibold text-white">Clásico & Bronce</span>
+                                <div class="flex -space-x-1">
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f8f4e8"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#d49b4b"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#172a45"></span>
+                                </div>
+                            </button>
+                            <button type="button" onclick="window.applyPalette('ceiling_indigo')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-indigo-500/40 transition text-left">
+                                <span class="text-[11px] font-semibold text-indigo-200">Índigo Techo</span>
+                                <div class="flex -space-x-1">
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#ffffff"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#cbd5e1"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#2b2d5c"></span>
+                                </div>
+                            </button>
+                            <button type="button" onclick="window.applyPalette('botanical')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                                <span class="text-[11px] font-semibold text-white">Verde & Terracota</span>
+                                <div class="flex -space-x-1">
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f4efe6"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#c86d51"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#1f3a2e"></span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ========================================================================= -->
+        <!-- PANEL LATERAL 2: NUEVO ESPACIO DEDICADO PARA RÓTULOS COLGANTES MODULARES  -->
+        <!-- (Imagen 2: Brazo Ornamental con Volutas y Módulos Enlazables Hacia Abajo) -->
+        <!-- ========================================================================= -->
+        <aside id="view-hanging" class="hidden lg:col-span-4 xl:col-span-4 bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto max-h-[calc(100vh-61px)] space-y-4">
+            
+            <div class="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 space-y-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="git-branch" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Rótulos Colgantes Modulares de Anaquel</span>
+                    </h3>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Inspirado en la señalética clásica con soporte de hierro forjado. Cada módulo cuelga del anterior mediante eslabones desmontables para quitar, poner o reordenar secciones sin desarmar el anaquel.
+                </p>
+            </div>
+
+            <!-- Configuración del Soporte / Brazo de Hierro Forjado -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
+                <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <i data-lucide="shield" class="w-3.5 h-3.5"></i> Soporte de Anaquel (Hierro Forjado)
+                </label>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Color del Brazo</label>
+                        <input type="color" id="hanging-bracket-color" value="#1e242b"
+                            onchange="cadState.hanging.bracketColor = this.value; window.triggerHangingRebuild();"
+                            class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Color de Cadenas</label>
+                        <input type="color" id="hanging-chain-color" value="#64748b"
+                            onchange="cadState.hanging.chainColor = this.value; window.triggerHangingRebuild();"
+                            class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Módulos Colgantes Dinámicos (Agregar hacia abajo) -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <i data-lucide="layers" class="w-3.5 h-3.5"></i> Placas Colgantes Enlazadas
+                    </label>
+                    <button onclick="window.addHangingPlate()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>+ Añadir Módulo Inferior</span>
+                    </button>
+                </div>
+
+                <p class="text-[11px] text-slate-400">
+                    Agrega placas subordinadas para pasillos o estanterías. Cada placa se conecta por abajo mediante argollas y eslabones en C impresos en 3D:
+                </p>
+
+                <!-- Contenedor dinámico de placas -->
+                <div id="hanging-plates-container" class="space-y-3">
+                    <!-- Generado dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Exportación Dedicada del Rótulo Colgante -->
+            <div class="bg-slate-800/50 border border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportación del Rótulo Colgante
+                </label>
+                <p class="text-[11px] text-slate-400">
+                    Todas las piezas (brazo, placas y eslabones) caben perfectamente acostadas sobre la placa de impresión de 25 cm.
+                </p>
+                <div class="flex flex-col gap-2 pt-1">
+                    <button onclick="window.exportHanging3MF()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+                        <i data-lucide="boxes" class="w-4 h-4"></i>
+                        <span>Descargar .3MF Colgante Multicolor (Bambu Studio)</span>
+                    </button>
+                    <button onclick="window.openPaperProofModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25" title="Exportar plantilla de papel con fondo blanco para recortar y probar en anaquel">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        <span>Imprimir en Papel (PNG Fondo Blanco)</span>
+                    </button>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <button onclick="window.exportHangingSTL('bracket')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] py-1.5 px-2 rounded-lg transition text-center">
+                            STL 1: Soporte Brazo
+                        </button>
+                        <button onclick="window.exportHangingSTL('plates')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] py-1.5 px-2 rounded-lg transition text-center">
+                            STL 2: Placas Colgantes
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ========================================================================= -->
+        <!-- VISOR 3D CENTRAL (Three.js) — AHORA CON MÁXIMO ESPACIO VERTICAL           -->
+        <!-- (Las tarjetas inferiores fueron reubicadas al modal desplegable)         -->
+        <!-- ========================================================================= -->
+        <section class="lg:col-span-8 xl:col-span-8 flex flex-col bg-slate-950 relative min-h-[560px] h-[calc(100vh-61px)]">
+            
+            <!-- Lienzo Three.js (Llenado completo de pantalla) -->
+            <div class="relative flex-1 w-full h-full overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950" id="three-container">
+                
+                <!-- Barra Superior Flotante sobre el Visor 3D -->
+                <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 z-10 pointer-events-none">
+                    <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center gap-3 text-xs text-slate-200 pointer-events-auto shadow-lg">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="rotate-3d" class="w-4 h-4 text-amber-400"></i>
+                            <span class="hidden sm:inline">Rotar / Zoom</span>
+                        </span>
+                        <span class="h-3.5 w-px bg-slate-700"></span>
+                        <span id="dimensions-badge" class="font-mono text-amber-400 font-semibold">0 × 0 × 0 mm</span>
+                        <span class="h-3.5 w-px bg-slate-700 hidden sm:inline-block"></span>
+                        <span id="parts-count-badge" class="text-[11px] text-emerald-400 font-semibold hidden sm:inline-block">Piezas Separadas</span>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 pointer-events-auto">
+                        <button onclick="window.toggleExplodeView()" id="btn-explode-toggle" class="bg-slate-900/90 hover:bg-slate-800 text-xs text-sky-300 px-2.5 py-1.5 rounded-xl border border-sky-500/40 transition flex items-center gap-1.5 shadow" title="Separa visualmente las capas de color en el aire para verificar las piezas">
+                            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                            <span>Capas</span>
+                        </button>
+                        <button onclick="window.toggleShelfContext()" id="btn-shelf-toggle" class="bg-slate-900/90 hover:bg-slate-800 text-xs text-slate-400 px-2.5 py-1.5 rounded-xl border border-slate-700 transition flex items-center gap-1.5 shadow" title="Alternar entre la Cama de Impresión de 25 cm y el Estante de Madera">
+                            <i data-lucide="library" class="w-3.5 h-3.5"></i>
+                            <span>Estante</span>
+                        </button>
+                        <button onclick="window.toggleWireframe()" class="bg-slate-900/90 hover:bg-slate-800 text-xs text-slate-200 px-2.5 py-1.5 rounded-xl border border-slate-700 transition shadow">
+                            Malla
+                        </button>
+                        <button onclick="window.resetCameraView()" class="bg-slate-900/90 hover:bg-slate-800 text-xs text-slate-200 px-2.5 py-1.5 rounded-xl border border-slate-700 transition shadow">
+                            Centrar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Panel Inferior Flotante: Centro de Exportación Rápida -->
+                <div class="absolute bottom-3 left-3 right-3 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl p-3.5 z-10 flex flex-col gap-2.5 shadow-2xl">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Dimensiones en Cama</span>
+                                <span id="stat-bbox" class="text-xs sm:text-sm font-bold font-mono text-white">0 × 0 × 0 mm</span>
+                            </div>
+                            <div class="h-6 w-px bg-slate-800"></div>
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Filamento Estimado</span>
+                                <span id="stat-weight" class="text-xs sm:text-sm font-bold text-amber-400">~65 g PLA</span>
+                            </div>
+                            <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
+                            <div class="hidden sm:block">
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Pausa sin AMS (Z)</span>
+                                <span id="z-swap-info" class="text-xs font-semibold text-emerald-400">Pausa en Z = 6.0 mm</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.toggleTechTipsModal(true)" class="text-[11px] text-sky-400 hover:underline flex items-center gap-1 font-medium">
+                                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                                <span>Consejos y STL</span>
+                            </button>
+                            <span class="text-slate-600">•</span>
+                            <button onclick="window.toggleBambuModal(true)" class="text-[11px] text-amber-300 hover:underline flex items-center gap-1 font-medium">
+                                <span>Pintar en Bambu Studio</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Descarga de Letrero de Sobremesa -->
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="window.exportBambu3MF()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-500/20">
+                                <i data-lucide="boxes" class="w-4 h-4"></i>
+                                <span>Descargar .3MF Multi-Pieza (Bambu Studio)</span>
+                            </button>
+                            <button onclick="window.exportMultiOBJ()" class="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                                <i data-lucide="file-box" class="w-3.5 h-3.5"></i>
+                                <span>.OBJ Multi-Objeto</span>
+                            </button>
+                            <button onclick="window.openPaperProofModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25" title="Exportar plantilla en imagen PNG con fondo blanco para probar en papel">
+                                <i data-lucide="printer" class="w-4 h-4"></i>
+                                <span>Imprimir en Papel (PNG)</span>
+                            </button>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button onclick="window.exportSTL('base')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-1.5 rounded-lg transition">
+                                STL 1: Base
+                            </button>
+                            <button onclick="window.exportSTL('letters')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-1.5 rounded-lg transition">
+                                STL 2: Letras
+                            </button>
+                            <button onclick="window.exportSTL('accents')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-1.5 rounded-lg transition">
+                                STL 3: Acentos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VISTA 3: CALCULADORA DE PROYECTO Y HORAS TÉCNICAS                        -->
+    <!-- ========================================================================= -->
+    <main id="view-pitch" class="hidden flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto">
+        <div class="max-w-6xl mx-auto space-y-6">
+            
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Estrategia Laboral y Presupuesto</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-white">Calculadora de Horas Técnicas y Propuesta para Jefatura</h2>
+                    <p class="text-xs sm:text-sm text-slate-300 max-w-3xl">
+                        Demuestra con datos objetivos que renovar la señalética internamente ahorra más de un 80% de presupuesto, pero requiere <strong>horas profesionales de modelado CAD, laminado y post-procesado</strong> adicionales a tu horario actual.
+                    </p>
+                </div>
+                <button onclick="window.switchMainTab('design')" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700 flex items-center gap-2">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Volver al Diseñador CAD</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Simulador de Horas -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-5 h-5 text-amber-400"></i>
+                        <span>Desglose de Horas Hombre del Proyecto</span>
+                    </h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs sm:text-sm mb-1.5">
+                                <span class="text-slate-300 font-medium">Cantidad total de letreros a producir para la biblioteca:</span>
+                                <span id="calc-signs-label" class="font-bold text-amber-400">25 letreros</span>
+                            </div>
+                            <input id="calc-signs" type="range" min="5" max="80" value="25" oninput="window.updatePitchCalculator()" class="w-full">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs sm:text-sm mb-1.5">
+                                <span class="text-slate-300 font-medium">Nivel de detalle del diseño 3D:</span>
+                                <span id="calc-comp-label" class="font-bold text-amber-400">Nivel 2 (Modular / Bicolor)</span>
+                            </div>
+                            <input id="calc-complexity" type="range" min="1" max="3" value="2" oninput="window.updatePitchCalculator()" class="w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">1. Diseño Paramétrico, STL y Laminado</div>
+                            <div id="hrs-cad" class="text-lg font-bold text-white mt-0.5">18.8 hrs</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Mallas personalizadas, verificación de tolerancias y corte.</div>
+                        </div>
+
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">2. Operación de Impresora y Cambios de Color</div>
+                            <div id="hrs-op" class="text-lg font-bold text-white mt-0.5">15.0 hrs activas</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Nivelación, purga de filamentos y supervisión de capas.</div>
+                        </div>
+
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">3. Post-Procesado, Ensamble y Montaje</div>
+                            <div id="hrs-post" class="text-lg font-bold text-white mt-0.5">12.5 hrs</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Limpieza de bordes y montaje en estantes.</div>
+                        </div>
+
+                        <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5">
+                            <div class="text-xs text-amber-300 font-semibold">TOTAL HORAS TÉCNICAS A SOLICITAR</div>
+                            <div id="hrs-total" class="text-2xl font-extrabold text-amber-400 mt-0.5">46.3 Horas</div>
+                            <div id="hrs-machine" class="text-[11px] text-amber-200/80 mt-1">+ 120 hrs de tiempo de máquina automatizado</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-950/30 border border-emerald-800/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Retorno de Inversión</span>
+                            <h4 class="text-sm font-bold text-white mt-0.5">Comparativa vs. Proveedor Externo de Acrílico</h4>
+                            <p class="text-xs text-slate-300 mt-1">
+                                Cotizar <span id="saving-count">25</span> letreros con un proveedor cuesta aprox. <strong id="external-cost" class="text-white">$875 USD</strong>. En filamento solo invertimos <strong id="internal-cost" class="text-emerald-400">$95 USD</strong>.
+                            </p>
+                        </div>
+                        <div class="text-left sm:text-right shrink-0">
+                            <span class="text-[11px] text-slate-400 block">Ahorro directo</span>
+                            <span id="net-savings" class="text-xl font-black text-emerald-400">+$780 USD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guión de Reunión -->
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="message-square-quote" class="w-5 h-5 text-amber-400"></i>
+                            <span>Guión para Plantear Más Horas / Sueldo</span>
+                        </h3>
+
+                        <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-amber-500">
+                                <strong class="text-white block mb-1">1. Solución Institucional vs. Cálida</strong>
+                                "Diseñé estos modelos 3D para dar a la biblioteca una imagen institucional, sobria y limpia, incorporando calidez y codificación cromática por áreas."
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-emerald-500">
+                                <strong class="text-white block mb-1">2. Muestra del Prototipo y Ahorro</strong>
+                                "Hacerlo internamente nos ahorra más del 80% de presupuesto frente a contratistas externos."
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-sky-500">
+                                <strong class="text-white block mb-1">3. Condición de Ampliación de Horas</strong>
+                                "Producir el conjunto requiere unas <strong id="script-hours" class="text-amber-400">46 horas</strong> técnicas adicionales a mi horario habitual de atención, por lo que requeriría una ampliación de horas o asignación por proyecto."
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                        <span id="copy-feedback" class="text-xs text-emerald-400 opacity-0 transition">¡Copiado!</span>
+                        <button onclick="window.copyPitchScript()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-xl border border-slate-700 flex items-center gap-2 transition">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>Copiar Resumen de Propuesta</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Módulo Principal ES6 -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

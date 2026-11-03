@@ -1,0 +1,29 @@
+{
+  "name": "bibliosign-3d-cad",
+  "version": "1.0.0",
+  "description": "BiblioSign 3D CAD & Bambu Studio .3MF/.STL Exporter para Señalética Institucional de Bibliotecas",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "threejs",
+    "cad",
+    "3d-printing",
+    "bambu-studio",
+    "3mf",
+    "stl",
+    "signage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "puppeteer-core": "^25.16.0",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}

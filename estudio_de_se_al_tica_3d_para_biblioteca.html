@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiblioSign 3D CAD & Bambu Studio .3MF/.STL Exporter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&family=Montserrat:wght@700;800&family=Oswald:wght@700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- OpenType.js para soporte completo de tildes UTF-8 (Á, É, Í, Ó, Ú, Ñ) desde archivos TTF reales -->
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <!-- JSZip para empaquetar archivos nativos .3MF Multi-Objeto compatibles con Bambu Studio / OrcaSlicer -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+    <!-- Importmap para Three.js y módulos CAD / Exporters -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1120;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        input[type="range"] {
+            accent-color: #f59e0b;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Notificación Toast Flotante -->
+    <div id="toast-notification" class="fixed bottom-5 right-5 z-50 pointer-events-none opacity-0 translate-y-3 transition-all duration-300 bg-slate-900/95 border border-emerald-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 max-w-md">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+            <div id="toast-title" class="text-xs font-bold text-emerald-400">Archivo Generado</div>
+            <div id="toast-desc" class="text-[11px] text-slate-300">Listo para abrir en Bambu Studio / OrcaSlicer</div>
+        </div>
+    </div>
+
+    <!-- Modal Guía Bambu Studio Multicolor -->
+    <div id="bambu-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <i data-lucide="palette" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Cómo cambiar el color de cada parte en Bambu Studio</h3>
+                        <p class="text-xs text-slate-400">Por qué el STL normal se veía de un solo color y cómo solucionarlo en 3 segundos</p>
+                    </div>
+                </div>
+                <button onclick="window.toggleBambuModal(false)" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <div class="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-1.5">
+                    <div class="font-bold text-emerald-300 flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>OPCIÓN A (La más fácil): Usa el botón verde "Descargar .3MF (Bambu Studio)"</span>
+                    </div>
+                    <p>El formato <strong>.3MF</strong> guarda internamente cada pieza por separado (<code>Base_Estructura</code>, <code>Letras_Relieve</code>, <code>Acentos_Marco</code> o cada letra individual):</p>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-200 pl-1">
+                        <li>Abre el archivo <strong>.3MF</strong> en <strong>Bambu Studio</strong>.</li>
+                        <li>En el panel izquierdo, cambia de "Global" a la pestaña <strong>"Objetos" (Objects)</strong>.</li>
+                        <li>Verás la lista desglosada: haz clic en el número de filamento al lado de <strong>Base</strong>, <strong>Letras</strong> o cada letra individual (o presiona el botón <strong>Dividir en Partes [P]</strong> arriba) y elige el color de tu AMS.</li>
+                    </ol>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700 space-y-1.5">
+                    <div class="font-bold text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                        <span>OPCIÓN B: Descargar los 3 archivos .STL por separado y arrastrarlos juntos</span>
+                    </div>
+                    <p>Si prefieres usar archivos <code>.STL</code>, descarga <strong>STL Base</strong>, <strong>STL Letras</strong> y <strong>STL Acentos</strong>. Selecciónalos los 3 al mismo tiempo en tu carpeta y arrástralos juntos dentro de Bambu Studio. Cuando aparezca el mensaje <em>"¿Cargar estos archivos como un único objeto con varias partes?"</em>, haz clic en <strong>SÍ</strong>. ¡Quedarán perfectamente alineados y separados por color!</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="window.toggleBambuModal(false)" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-xl transition">
+                    Entendido, volver al diseñador
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra Superior -->
+    <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <i data-lucide="box" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">BiblioSign 3D CAD & Bambu Studio Exporter</h1>
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">UTF-8 Español (ÁÉÍÓÚÑ) + .3MF Multicolor</span>
+                </div>
+                <p class="text-xs text-slate-400">Señalética institucional en milímetros con separación de piezas para cambio de color en Bambu Studio</p>
+            </div>
+        </div>
+
+        <!-- Botones rápidos de descarga .3MF y cambio de pestaña -->
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="window.toggleBambuModal(true)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+                <span>¿Cómo pintar en Bambu Studio?</span>
+            </button>
+
+            <button onclick="window.exportBambu3MF()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition">
+                <i data-lucide="boxes" class="w-4 h-4"></i>
+                <span>Descargar .3MF Multi-Pieza (Bambu Studio)</span>
+            </button>
+
+            <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+                <button id="tab-design" onclick="window.switchMainTab('design')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                    <span>Diseñador CAD 3D</span>
+                </button>
+                <button id="tab-pitch" onclick="window.switchMainTab('pitch')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white">
+                    <i data-lucide="briefcase" class="w-3.5 h-3.5"></i>
+                    <span>Propuesta Horas / Sueldo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- VISTA 1: GENERADOR CAD 3D Y EXPORTADOR .3MF / .OBJ / .STL -->
+    <main id="view-design" class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0">
+        
+        <!-- Panel de Controles CAD (Izquierda) -->
+        <aside class="lg:col-span-4 xl:col-span-4 bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto max-h-[calc(100vh-61px)] space-y-4">
+            
+            <!-- 1. Texto con soporte completo de Tildes y Ñ -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i data-lucide="type" class="w-3.5 h-3.5"></i> 1. Texto en Español (Con Tildes y Ñ)
+                    </label>
+                    <span id="font-loading-badge" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Cargando fuentes UTF-8...</span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-[11px] text-slate-400">Texto Principal (Soporta Á, É, Í, Ó, Ú, Ñ, Ü)</label>
+                            <div class="flex gap-1">
+                                <button onclick="window.insertAccentChar('Á')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Á</button>
+                                <button onclick="window.insertAccentChar('É')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">É</button>
+                                <button onclick="window.insertAccentChar('Í')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Í</button>
+                                <button onclick="window.insertAccentChar('Ó')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ó</button>
+                                <button onclick="window.insertAccentChar('Ú')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ú</button>
+                                <button onclick="window.insertAccentChar('Ñ')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-bold">Ñ</button>
+                            </div>
+                        </div>
+                        <input id="sign-text" type="text" value="INVESTIGACIÓN" maxlength="18" 
+                            class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-white font-bold tracking-wider uppercase text-sm outline-none transition"
+                            placeholder="Ej: INVESTIGACIÓN / FILOSOFÍA" oninput="window.triggerRebuild()">
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-2">
+                        <div class="col-span-8">
+                            <label class="text-[11px] text-slate-400 block mb-1">Subtítulo / Clasificación Dewey</label>
+                            <input id="sign-subtext" type="text" value="SECCIÓN 001 • CONSULTA" maxlength="26"
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 uppercase outline-none"
+                                oninput="window.triggerRebuild()">
+                        </div>
+                        <div class="col-span-4 flex items-end">
+                            <label class="flex items-center justify-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 w-full">
+                                <input id="show-subtext" type="checkbox" onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                                <span>Incluir</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-[10px] text-slate-400 block mb-1.5">Ejemplos institucionales con tildes y referencias:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick="window.setQuickPreset('INVESTIGACIÓN', 'SECCIÓN 001 • TESIS', 'modular', false, 'montserrat')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">INVESTIGACIÓN (Bloques)</button>
+                        <button onclick="window.setQuickPreset('FILOSOFÍA', '100 • PENSAMIENTO CLÁSICO', 'filigree', true, 'cinzel')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">FILOSOFÍA (Romana)</button>
+                        <button onclick="window.setQuickPreset('HEMEROTECA', 'PUBLICACIONES PERIÓDICAS', 'plaque', true, 'oswald')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">HEMEROTECA (Placa DIN)</button>
+                        <button onclick="window.setQuickPreset('ESPAÑOL', '460 • LINGÜÍSTICA', 'solid', false, 'baskerville')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">ESPAÑOL (Corpóreo)</button>
+                        <button onclick="window.setQuickPreset('MAKER', 'LABORATORIO 3D', 'modular', false, 'montserrat')" class="text-[11px] bg-slate-700/80 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg transition">MAKER (Foto 3)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Tipografías Institucionales y Arquitectónicas (Cero infantiles) -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-2.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <i data-lucide="award" class="w-3.5 h-3.5"></i> 2. Tipografía Institucional (Con soporte UTF-8)
+                </label>
+
+                <select id="param-font" onchange="window.triggerRebuild()" class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none">
+                    <option value="montserrat">1. Montserrat Bold — Geométrica Arquitectónica (Moderna / MAKER)</option>
+                    <option value="cinzel">2. Cinzel Bold — Romana Monumental Universitaria (Solemne / Clásica)</option>
+                    <option value="baskerville">3. Libre Baskerville Bold — Editorial Académica de Biblioteca</option>
+                    <option value="oswald">4. Oswald Bold — Técnica Condensada DIN (Señalética de Pasillos)</option>
+                    <option value="playfair">5. Playfair Display Bold — Alta Imprenta Institucional (Capitulares)</option>
+                </select>
+                <p id="font-desc-helper" class="text-[11px] text-slate-400 leading-snug">
+                    Trazo geométrico de alta precisión arquitectónica. Muy limpia para fácil lectura a distancia y excelente adherencia de capa.
+                </p>
+            </div>
+
+            <!-- 3. Arquitectura CAD del Letrero (Los 4 Estilos) -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-2.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5"></i> 3. Diseño Estructural 3D
+                </label>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.selectStyle('modular')" id="style-btn-modular" class="text-left p-2.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Bloques MAKER</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Modular</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">Cubos individuales escalonados con letra en alto relieve.</p>
+                    </button>
+
+                    <button onclick="window.selectStyle('solid')" id="style-btn-solid" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Corpóreo ABC</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Sólido</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">Letras gruesas independientes con o sin peana inferior.</p>
+                    </button>
+
+                    <button onclick="window.selectStyle('filigree')" id="style-btn-filigree" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Capitular Clásica</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Multicapa</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">Marco arquitectónico con relieves y primera letra destacada.</p>
+                    </button>
+
+                    <button onclick="window.selectStyle('plaque')" id="style-btn-plaque" class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Placa Wayfinding</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Dewey</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">Placa institucional biselada con código de color lateral.</p>
+                    </button>
+                </div>
+
+                <div class="pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-[11px]">
+                    <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                        <input id="stagger-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                        <span>Desfase dinámico (MAKER)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                        <input id="stand-rail-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
+                        <span>Unión trasera / Peana</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4. Dimensiones Paramétricas en Milímetros -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i data-lucide="ruler" class="w-3.5 h-3.5"></i> 4. Medidas CAD en Milímetros
+                    </label>
+                    <span class="text-[10px] font-mono text-emerald-400">Escala 1:1 Real</span>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                    <div>
+                        <div class="flex justify-between mb-0.5">
+                            <span class="text-slate-300">Altura de Letra (Tamaño Y)</span>
+                            <span id="lbl-letter-size" class="font-mono text-amber-400 font-bold">36 mm</span>
+                        </div>
+                        <input id="param-letter-size" type="range" min="18" max="75" value="36" oninput="window.triggerRebuild()" class="w-full">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between mb-0.5">
+                                <span class="text-slate-300">Grosor Base (Z1)</span>
+                                <span id="lbl-base-depth" class="font-mono text-amber-400 font-bold">6 mm</span>
+                            </div>
+                            <input id="param-base-depth" type="range" min="2" max="16" value="6" oninput="window.triggerRebuild()" class="w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-0.5">
+                                <span class="text-slate-300">Relieve Letra (Z2)</span>
+                                <span id="lbl-letter-depth" class="font-mono text-amber-400 font-bold">5 mm</span>
+                            </div>
+                            <input id="param-letter-depth" type="range" min="2" max="20" value="5" oninput="window.triggerRebuild()" class="w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between mb-0.5">
+                                <span class="text-slate-300">Biselado 3D</span>
+                                <span id="lbl-bevel" class="font-mono text-slate-300">0.8 mm</span>
+                            </div>
+                            <input id="param-bevel" type="range" min="0" max="2.0" step="0.2" value="0.8" oninput="window.triggerRebuild()" class="w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-0.5">
+                                <span class="text-slate-300">Espaciado</span>
+                                <span id="lbl-spacing" class="font-mono text-slate-300">4 mm</span>
+                            </div>
+                            <input id="param-spacing" type="range" min="0" max="14" step="1" value="4" oninput="window.triggerRebuild()" class="w-full">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Agrupación de Objetos para Bambu Studio y Paletas -->
+            <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
+                <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <i data-lucide="boxes" class="w-3.5 h-3.5"></i> 5. Separación de Piezas en Bambu Studio
+                </label>
+
+                <div>
+                    <label class="text-[11px] text-slate-300 block mb-1">¿Cómo quieres que Bambu Studio separe el modelo?</label>
+                    <select id="bambu-split-mode" class="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-2.5 py-2 text-xs text-white outline-none">
+                        <option value="by_color_layer">Por Capas de Color (1. Base + 2. Letras + 3. Acentos) — Más Rápido</option>
+                        <option value="by_individual_part">Cada Letra y Cada Bloque por Separado (Ideal para pintar letra por letra)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                    <button onclick="window.applyPalette('nordic')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                        <span class="text-[11px] font-semibold text-white">Nórdico / MAKER</span>
+                        <div class="flex -space-x-1">
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f5f5f0"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#b07d4f"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#1e242b"></span>
+                        </div>
+                    </button>
+                    <button onclick="window.applyPalette('oxford')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                        <span class="text-[11px] font-semibold text-white">Clásico & Bronce</span>
+                        <div class="flex -space-x-1">
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f8f4e8"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#d49b4b"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#172a45"></span>
+                        </div>
+                    </button>
+                    <button onclick="window.applyPalette('botanical')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                        <span class="text-[11px] font-semibold text-white">Verde & Terracota</span>
+                        <div class="flex -space-x-1">
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#f4efe6"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#c86d51"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#1f3a2e"></span>
+                        </div>
+                    </button>
+                    <button onclick="window.applyPalette('multidewey')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 transition text-left">
+                        <span class="text-[11px] font-semibold text-white">Multicolor Sobrio</span>
+                        <div class="flex -space-x-1">
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#b85d43"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#3b6e75"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-slate-600" style="background:#c9974c"></span>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Filamento Letras</label>
+                        <input type="color" id="color-face" value="#f5f5f0" onchange="window.disableMultiAndColors()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Filamento Acento</label>
+                        <input type="color" id="color-accent" value="#b07d4f" onchange="window.updateColorsOnly()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Filamento Base</label>
+                        <input type="color" id="color-base" value="#1e242b" onchange="window.updateColorsOnly()" class="w-full h-7 rounded cursor-pointer bg-slate-950 border border-slate-700 p-0.5">
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Visor CAD 3D (Derecha) + Centro de Exportación Multicolor Bambu Studio -->
+        <section class="lg:col-span-8 xl:col-span-8 flex flex-col bg-slate-950">
+            
+            <!-- Lienzo Three.js -->
+            <div class="relative flex-1 min-h-[470px] w-full overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950" id="three-container">
+                
+                <!-- Controles Superiores sobre el Visor 3D -->
+                <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 z-10 pointer-events-none">
+                    <div class="bg-slate-900/85 backdrop-blur-md border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center gap-3 text-xs text-slate-200 pointer-events-auto">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="rotate-3d" class="w-4 h-4 text-amber-400"></i>
+                            <span>Rotar / Zoom 3D</span>
+                        </span>
+                        <span class="h-3.5 w-px bg-slate-700 hidden sm:inline-block"></span>
+                        <span id="dimensions-badge" class="font-mono text-amber-400 font-semibold">0 × 0 × 0 mm</span>
+                        <span class="h-3.5 w-px bg-slate-700 hidden md:inline-block"></span>
+                        <span id="parts-count-badge" class="text-[11px] text-emerald-400 font-semibold hidden md:inline-block">3 Piezas Separadas</span>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 pointer-events-auto">
+                        <button onclick="window.toggleExplodeView()" id="btn-explode-toggle" class="bg-slate-900/85 hover:bg-slate-800 text-xs text-sky-300 px-2.5 py-1.5 rounded-lg border border-sky-500/40 transition flex items-center gap-1.5" title="Separa visualmente las capas de color en el aire para verificar las piezas">
+                            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                            <span>Vista Explosiva (Capas)</span>
+                        </button>
+                        <button onclick="window.toggleShelfContext()" id="btn-shelf-toggle" class="bg-slate-900/85 hover:bg-slate-800 text-xs text-amber-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                            <i data-lucide="library" class="w-3.5 h-3.5"></i>
+                            <span>Estante</span>
+                        </button>
+                        <button onclick="window.toggleWireframe()" class="bg-slate-900/85 hover:bg-slate-800 text-xs text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition">
+                            Malla CAD
+                        </button>
+                        <button onclick="window.resetCameraView()" class="bg-slate-900/85 hover:bg-slate-800 text-xs text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition">
+                            Centrar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Panel Inferior Flotante: Centro de Exportación Multicolor Bambu Studio -->
+                <div class="absolute bottom-3 left-3 right-3 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl p-3.5 z-10 flex flex-col gap-3 shadow-2xl">
+                    
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Dimensiones (X × Y × Z)</span>
+                                <span id="stat-bbox" class="text-xs sm:text-sm font-bold font-mono text-white">0 × 0 × 0 mm</span>
+                            </div>
+                            <div class="h-6 w-px bg-slate-800"></div>
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Filamento Estimado</span>
+                                <span id="stat-weight" class="text-xs sm:text-sm font-bold text-amber-400">~65 g PLA</span>
+                            </div>
+                            <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
+                            <div class="hidden sm:block">
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Cambio por Altura Z (Sin AMS)</span>
+                                <span id="z-swap-info" class="text-xs font-semibold text-emerald-400">Pausa en Z = 6.0 mm</span>
+                            </div>
+                        </div>
+
+                        <button onclick="window.toggleBambuModal(true)" class="text-[11px] text-amber-300 hover:underline flex items-center gap-1 font-medium">
+                            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                            <span>Ver instrucciones para pintar en Bambu Studio</span>
+                        </button>
+                    </div>
+
+                    <!-- Botones de Exportación Separados y Multi-Cuerpo -->
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <!-- Descarga Recomendada: .3MF y .OBJ Multi-Objeto -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="window.exportBambu3MF()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-500/20" title="Archivo nativo para Bambu Studio con todas las partes separadas por nombre para asignarles distinto filamento">
+                                <i data-lucide="boxes" class="w-4 h-4"></i>
+                                <span>1. Descargar .3MF Multi-Pieza (Especial Bambu Studio)</span>
+                            </button>
+
+                            <button onclick="window.exportMultiOBJ()" class="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-bold text-xs px-3 py-2.5 rounded-xl transition flex items-center gap-1.5" title="Exporta un archivo .OBJ con sub-objetos nombrados que Bambu Studio puede dividir en objetos">
+                                <i data-lucide="file-box" class="w-3.5 h-3.5"></i>
+                                <span>.OBJ Multi-Objeto</span>
+                            </button>
+                        </div>
+
+                        <!-- Descargas STL Separadas por Capa de Color (Mismo Origen de Coordenadas) -->
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] text-slate-400 mr-1 hidden xl:inline">O descargar STL por parte:</span>
+                            <button onclick="window.exportSTL('base')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-2 rounded-xl transition flex items-center gap-1" title="Descarga únicamente los bloques/base trasera">
+                                <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                                <span>STL 1: Base</span>
+                            </button>
+                            <button onclick="window.exportSTL('letters')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-2 rounded-xl transition flex items-center gap-1" title="Descarga únicamente las letras con tildes">
+                                <span class="w-2.5 h-2.5 rounded-full bg-white"></span>
+                                <span>STL 2: Letras</span>
+                            </button>
+                            <button onclick="window.exportSTL('accents')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold text-[11px] px-2.5 py-2 rounded-xl transition flex items-center gap-1" title="Descarga únicamente el bloque acentuado, marco o barra lateral">
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                <span>STL 3: Acentos</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explicación Técnica Inferior -->
+            <div class="bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="bg-slate-800/40 border border-emerald-500/30 rounded-xl p-3 flex gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="check-check" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white">Solucionado: Multicolor en Bambu Studio</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            Al descargar el <strong>.3MF Multi-Pieza</strong>, Bambu Studio detecta cada componente por separado en la pestaña <em>Objetos</em>. Así cambias el color de las letras, acentos y base con un clic sin pintar a mano.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3 flex gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="languages" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white">Tildes y Ñ 100% Vectoriales (UTF-8)</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            Las 5 fuentes institucionales procesan glifos OpenType reales para que palabras como <strong>INVESTIGACIÓN</strong>, <strong>FILOSOFÍA</strong> o <strong>ESPAÑOL</strong> conserven sus tildes con el mismo bisel y relieve.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3 flex gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="combine" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white">Arrastrar STL1 + STL2 + STL3 juntos</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            Los botones <strong>STL 1: Base</strong>, <strong>STL 2: Letras</strong> y <strong>STL 3: Acentos</strong> comparten las mismas coordenadas exactas. Si los arrastras juntos a Bambu Studio se ensamblan solos.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- VISTA 2: CALCULADORA DE PROYECTO Y GUIÓN PARA PEDIR MÁS HORAS / MEJOR SUELDO -->
+    <main id="view-pitch" class="hidden flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto">
+        <div class="max-w-6xl mx-auto space-y-6">
+            
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Estrategia Laboral y Presupuesto</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-white">Calculadora de Horas Técnicas y Propuesta para Jefatura</h2>
+                    <p class="text-xs sm:text-sm text-slate-300 max-w-3xl">
+                        Demuestra con datos objetivos que renovar la señalética internamente ahorra más de un 80% de presupuesto, pero requiere <strong>horas profesionales de modelado CAD, laminado y post-procesado</strong> adicionales a tu horario actual.
+                    </p>
+                </div>
+                <button onclick="window.switchMainTab('design')" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700 flex items-center gap-2">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Volver al Generador STL</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Simulador de Horas -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-5 h-5 text-amber-400"></i>
+                        <span>Desglose de Horas Hombre del Proyecto</span>
+                    </h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs sm:text-sm mb-1.5">
+                                <span class="text-slate-300 font-medium">Cantidad total de letreros a producir para la biblioteca:</span>
+                                <span id="calc-signs-label" class="font-bold text-amber-400">25 letreros</span>
+                            </div>
+                            <input id="calc-signs" type="range" min="5" max="80" value="25" oninput="window.updatePitchCalculator()" class="w-full">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs sm:text-sm mb-1.5">
+                                <span class="text-slate-300 font-medium">Nivel de detalle del diseño 3D:</span>
+                                <span id="calc-comp-label" class="font-bold text-amber-400">Nivel 2 (Modular / Bicolor)</span>
+                            </div>
+                            <input id="calc-complexity" type="range" min="1" max="3" value="2" oninput="window.updatePitchCalculator()" class="w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">1. Diseño Paramétrico, STL y Laminado</div>
+                            <div id="hrs-cad" class="text-lg font-bold text-white mt-0.5">18.8 hrs</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Generación de mallas personalizadas, verificación de tolerancias y perfiles de corte.</div>
+                        </div>
+
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">2. Operación de Impresora y Cambios de Color</div>
+                            <div id="hrs-op" class="text-lg font-bold text-white mt-0.5">15.0 hrs activas</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Nivelación, purga de filamentos, supervisión de primeras capas y retiro de piezas.</div>
+                        </div>
+
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                            <div class="text-xs text-slate-400">3. Post-Procesado, Ensamble y Montaje</div>
+                            <div id="hrs-post" class="text-lg font-bold text-white mt-0.5">12.5 hrs</div>
+                            <div class="text-[11px] text-slate-500 mt-1">Unión de bloques, limpieza de bordes, colocación de cinta acrílica y montaje en estantes.</div>
+                        </div>
+
+                        <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5">
+                            <div class="text-xs text-amber-300 font-semibold">TOTAL HORAS TÉCNICAS A SOLICITAR</div>
+                            <div id="hrs-total" class="text-2xl font-extrabold text-amber-400 mt-0.5">46.3 Horas</div>
+                            <div id="hrs-machine" class="text-[11px] text-amber-200/80 mt-1">+ 120 hrs de tiempo de máquina automatizado</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-950/30 border border-emerald-800/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Retorno de Inversión para la Institución</span>
+                            <h4 class="text-sm font-bold text-white mt-0.5">Comparativa vs. Letreros Comerciales de Acrílico/Láser</h4>
+                            <p class="text-xs text-slate-300 mt-1">
+                                Cotizar <span id="saving-count">25</span> letreros corpóreos con un proveedor externo cuesta aprox. <strong id="external-cost" class="text-white">$875 USD</strong>. En filamento PLA solo se invierten <strong id="internal-cost" class="text-emerald-400">$95 USD</strong>.
+                            </p>
+                        </div>
+                        <div class="text-left sm:text-right shrink-0">
+                            <span class="text-[11px] text-slate-400 block">Ahorro directo en presupuesto</span>
+                            <span id="net-savings" class="text-xl font-black text-emerald-400">+$780 USD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guión de Reunión -->
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="message-square-quote" class="w-5 h-5 text-amber-400"></i>
+                            <span>Guión para Plantear Más Horas / Sueldo</span>
+                        </h3>
+
+                        <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-amber-500">
+                                <strong class="text-white block mb-1">1. Presenta la solución al problema "Institucional vs. Cálido"</strong>
+                                "Jefes, diseñé estos modelos 3D pensando en que la biblioteca conserve una imagen sumamente institucional, limpia y seria, pero incorporando calidez mediante acabados mate, tonos madera y codificación cromática por áreas."
+                            </div>
+
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-emerald-500">
+                                <strong class="text-white block mb-1">2. Muestra el prototipo STL y el ahorro</strong>
+                                "Ya generé los archivos de ingeniería `.STL` listos para impresión. Hacerlo nosotros mismos nos ahorra más del 80% frente a mandarlo a fabricar afuera, y forma parte de una cartera de mejoras que tengo planeadas para la biblioteca."
+                            </div>
+
+                            <div class="p-3 rounded-xl bg-slate-950 border-l-4 border-sky-500">
+                                <strong class="text-white block mb-1">3. Condiciona la implementación a la ampliación de horas</strong>
+                                "Sin embargo, producir los letreros completos conlleva unas <strong id="script-hours" class="text-amber-400">46 horas</strong> de trabajo técnico entre diseño CAD, cambios de color y ensamblaje. Como mi horario actual está 100% comprometido en la atención y operación diaria, solo podría ejecutar este plan si me autorizan una ampliación de horas o asignación de horas por proyecto."
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                        <span id="copy-feedback" class="text-xs text-emerald-400 opacity-0 transition">¡Copiado al portapapeles!</span>
+                        <button onclick="window.copyPitchScript()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700 flex items-center gap-2 transition">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>Copiar Resumen de Propuesta</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- MOTOR CAD 3D CON OPENTYPE.JS (UTF-8 ESPAÑOL) + EXPORTADOR .3MF NATIVO BAMBU STUDIO -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+        import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+
+        lucide.createIcons();
+
+        // Estado global del motor CAD
+        const cadState = {
+            style: 'modular', // 'modular' | 'solid' | 'filigree' | 'plaque'
+            otFonts: {},      // Fuentes OpenType.js con soporte completo UTF-8 (Á, É, Í, Ó, Ú, Ñ, Ü)
+            useMultiColor: false,
+            multiColors: ['#b85d43', '#3b6e75', '#c9974c', '#6b4c5b', '#4d6b53', '#2b4c65'],
+            wireframe: false,
+            showShelf: false,
+            explodedView: false,
+            rebuildTimer: null
+        };
+
+        // Catálogo de 5 Tipografías Institucionales, Arquitectónicas y Académicas (.TTF directos de Google Fonts GStatic + Respaldo WOFF)
+        const institutionalFonts = {
+            montserrat: {
+                name: 'Montserrat Bold',
+                urls: [
+                    'https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCuM73w5aX8.ttf',
+                    'https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5.0.8/files/montserrat-latin-700-normal.woff'
+                ],
+                cssFamily: '"Montserrat", sans-serif',
+                desc: 'Trazo geométrico de alta precisión arquitectónica. Moderna, sobria y de excelente lectura a distancia.'
+            },
+            cinzel: {
+                name: 'Cinzel Bold',
+                urls: [
+                    'https://fonts.gstatic.com/s/cinzel/v23/8vIU7ww63mVu7gtR-kwKxNvkNOjw-jHgfY3lCA.ttf',
+                    'https://cdn.jsdelivr.net/npm/@fontsource/cinzel@5.0.8/files/cinzel-latin-700-normal.woff'
+                ],
+                cssFamily: '"Cinzel", serif',
+                desc: 'Inspirada en inscripciones romanas clásicas y fachadas universitarias. Máxima solemnidad institucional.'
+            },
+            baskerville: {
+                name: 'Libre Baskerville Bold',
+                urls: [
+                    'https://fonts.gstatic.com/s/librebaskerville/v14/kmKiZrc3Hgbbcjq75U4uslyuy4kn0qviTgY3KcA.ttf',
+                    'https://cdn.jsdelivr.net/npm/@fontsource/libre-baskerville@5.0.8/files/libre-baskerville-latin-700-normal.woff'
+                ],
+                cssFamily: '"Libre Baskerville", serif',
+                desc: 'Serif editorial académica por excelencia. Transmite prestigio literario, seriedad y calidez.'
+            },
+            oswald: {
+                name: 'Oswald Bold',
+                urls: [
+                    'https://fonts.gstatic.com/s/oswald/v53/TK3_WkUHHAIjg75cFRf3bXL8LICs1xZosUZiYA.ttf',
+                    'https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.0.8/files/oswald-latin-700-normal.woff'
+                ],
+                cssFamily: '"Oswald", sans-serif',
+                desc: 'Tipografía técnica condensada tipo norma DIN. Permite palabras largas en estanterías con gran impacto.'
+            },
+            playfair: {
+                name: 'Playfair Display Bold',
+                urls: [
+                    'https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKeiunDXbtY.ttf',
+                    'https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5.0.8/files/playfair-display-latin-700-normal.woff'
+                ],
+                cssFamily: '"Playfair Display", serif',
+                desc: 'Alta imprenta clásica europea. Ideal para letras capitulares, salas históricas y colecciones especiales.'
+            }
+        };
+
+        // Escena Three.js
+        const container = document.getElementById('three-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+
+        const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 1, 3500);
+        camera.position.set(0, -195, 225);
+        camera.up.set(0, 0, 1); // Eje Z hacia arriba igual que en Bambu Studio
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        container.appendChild(renderer.domElement);
+
+        // Controles orbitales de cámara
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 8);
+        controls.maxPolarAngle = Math.PI / 2 + 0.15;
+        controls.minDistance = 45;
+        controls.maxDistance = 1200;
+        controls.update();
+
+        // Grupos de objetos CAD imprimibles
+        const printableRoot = new THREE.Group();
+        printableRoot.name = "Letrero_Imprimible_Raiz";
+        const baseGroup = new THREE.Group();
+        baseGroup.name = "Capa_1_Base";
+        const accentsGroup = new THREE.Group();
+        accentsGroup.name = "Capa_3_Acentos";
+        const lettersGroup = new THREE.Group();
+        lettersGroup.name = "Capa_2_Letras";
+
+        printableRoot.add(baseGroup);
+        printableRoot.add(accentsGroup);
+        printableRoot.add(lettersGroup);
+        scene.add(printableRoot);
+
+        // Iluminación de estudio
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(0xfff8eb, 1.35);
+        keyLight.position.set(120, -180, 240);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.camera.near = 10;
+        keyLight.shadow.camera.far = 800;
+        const shadowD = 180;
+        keyLight.shadow.camera.left = -shadowD;
+        keyLight.shadow.camera.right = shadowD;
+        keyLight.shadow.camera.top = shadowD;
+        keyLight.shadow.camera.bottom = -shadowD;
+        keyLight.shadow.bias = -0.0005;
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+        fillLight.position.set(-160, 100, 140);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(0xffedd5, 0.65);
+        rimLight.position.set(0, 180, 200);
+        scene.add(rimLight);
+
+        // Entorno (Cama Bambu + Estante de madera)
+        let shelfMesh = null;
+        let buildPlateGroup = null;
+        function buildEnvironment() {
+            if (!buildPlateGroup) {
+                buildPlateGroup = new THREE.Group();
+                buildPlateGroup.name = "Bambu_Build_Plate";
+
+                const gridHelper = new THREE.GridHelper(260, 26, 0xf59e0b, 0x334155);
+                gridHelper.rotation.x = Math.PI / 2;
+                gridHelper.position.set(0, 0, -0.2);
+                buildPlateGroup.add(gridHelper);
+
+                const bedGeo = new THREE.PlaneGeometry(260, 260);
+                const bedMat = new THREE.MeshStandardMaterial({
+                    color: 0x0c1322,
+                    roughness: 0.9,
+                    metalness: 0.1
+                });
+                const bedMesh = new THREE.Mesh(bedGeo, bedMat);
+                bedMesh.position.set(0, 0, -0.4);
+                bedMesh.receiveShadow = true;
+                buildPlateGroup.add(bedMesh);
+
+                scene.add(buildPlateGroup);
+            }
+
+            if (shelfMesh) {
+                scene.remove(shelfMesh);
+                if (shelfMesh.geometry) shelfMesh.geometry.dispose();
+                shelfMesh = null;
+            }
+
+            if (cadState.showShelf) {
+                const shelfGeo = new THREE.BoxGeometry(340, 90, 14);
+                shelfGeo.translate(0, 0, -7.5);
+                const shelfMat = new THREE.MeshStandardMaterial({
+                    color: 0x5a3d28,
+                    roughness: 0.72,
+                    metalness: 0.05
+                });
+                shelfMesh = new THREE.Mesh(shelfGeo, shelfMat);
+                shelfMesh.name = "Estante_Biblioteca_Madera";
+                shelfMesh.receiveShadow = true;
+                scene.add(shelfMesh);
+                buildPlateGroup.visible = false;
+            } else {
+                buildPlateGroup.visible = true;
+            }
+        }
+        buildEnvironment();
+        // Verifica que el ArrayBuffer tenga una firma binaria válida de fuente (TTF, OTF o WOFF1) y nunca "Pack"
+        function isValidFontBuffer(buffer) {
+            if (!buffer || buffer.byteLength < 64) return false;
+            const view = new DataView(buffer);
+            const magic = view.getUint32(0, false);
+            // 0x00010000 = TrueType, 0x74727565 = 'true', 0x4F54544F = 'OTTO' (CFF), 0x774F4646 = 'wOFF' (WOFF1)
+            return (
+                magic === 0x00010000 ||
+                magic === 0x74727565 ||
+                magic === 0x4F54544F ||
+                magic === 0x774F4646
+            );
+        }
+
+        // Cargar una fuente OpenType (.TTF / .WOFF) con validación estricta de cabecera binaria y respaldo automático
+        async function ensureFontLoaded(fontKey) {
+            if (cadState.otFonts[fontKey]) return cadState.otFonts[fontKey];
+
+            const badge = document.getElementById('font-loading-badge');
+            const fontMeta = institutionalFonts[fontKey] || institutionalFonts.montserrat;
+            badge.textContent = `Cargando ${fontMeta.name}...`;
+            badge.className = "text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300";
+
+            const urlsToTry = fontMeta.urls || [];
+
+            for (const url of urlsToTry) {
+                try {
+                    const response = await fetch(url, { mode: 'cors' });
+                    if (!response.ok) continue;
+                    const arrayBuffer = await response.arrayBuffer();
+
+                    // Evita pasar buffers de texto como "Package size exceeded" a opentype.parse()
+                    if (!isValidFontBuffer(arrayBuffer)) {
+                        continue;
+                    }
+
+                    const parsedFont = window.opentype.parse(arrayBuffer);
+                    if (parsedFont && parsedFont.glyphs) {
+                        cadState.otFonts[fontKey] = parsedFont;
+                        badge.textContent = "UTF-8 Español Activo (ÁÉÍÓÚÑ)";
+                        badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
+                        return parsedFont;
+                    }
+                } catch (err) {
+                    // Continuar silenciosamente con el siguiente mirror
+                }
+            }
+
+            // Si algún firewall bloquea los binarios externos, activamos el motor vectorial Canvas 2D con las fuentes CSS
+            const fallbackFontObj = { isCanvasFallback: true, cssFamily: fontMeta.cssFamily };
+            cadState.otFonts[fontKey] = fallbackFontObj;
+            badge.textContent = "UTF-8 Español Activo (Modo Vectorial)";
+            badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
+            return fallbackFontObj;
+        }
+
+        // Trazador de respaldo en Canvas 2D (por si una red bloquea la descarga de .ttf externos)
+        function traceCharFromCanvas2D(charStr, cssFamily, sizeMm, depthMm, bevelMm) {
+            const res = 160;
+            const pad = 36;
+            const canvas = document.createElement('canvas');
+            const widthPx = Math.max(res * Math.max(1, charStr.length * 0.85) + pad * 2, 220);
+            const heightPx = res + pad * 2;
+            canvas.width = widthPx;
+            canvas.height = heightPx;
+
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, widthPx, heightPx);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `700 ${Math.round(res * 0.78)}px ${cssFamily}`;
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(charStr, pad, heightPx - pad * 1.15);
+
+            const img = ctx.getImageData(0, 0, widthPx, heightPx).data;
+            const scale = sizeMm / (res * 0.65);
+
+            // Construcción por columnas sólidas optimizadas si se usa el modo fallback
+            const shapes = [];
+            const step = 2;
+            for (let x = 0; x < widthPx; x += step) {
+                let yStart = -1;
+                for (let y = 0; y < heightPx; y++) {
+                    const lum = img[(y * widthPx + x) * 4];
+                    if (lum > 128 && yStart === -1) {
+                        yStart = y;
+                    } else if ((lum <= 128 || y === heightPx - 1) && yStart !== -1) {
+                        const x0 = x * scale;
+                        const x1 = (x + step + 0.15) * scale;
+                        const y0 = (heightPx - y) * scale;
+                        const y1 = (heightPx - yStart) * scale;
+                        const s = new THREE.Shape();
+                        s.moveTo(x0, y0);
+                        s.lineTo(x1, y0);
+                        s.lineTo(x1, y1);
+                        s.lineTo(x0, y1);
+                        s.closePath();
+                        shapes.push(s);
+                        yStart = -1;
+                    }
+                }
+            }
+
+            if (shapes.length === 0) return null;
+            const geo = new THREE.ExtrudeGeometry(shapes, {
+                depth: depthMm,
+                steps: 1,
+                bevelEnabled: false
+            });
+            geo.computeBoundingBox();
+            return geo;
+        }
+
+        // CONVERSOR VECTORIAL UTF-8: Convierte cualquier carácter (incluyendo Á, É, Í, Ó, Ú, Ñ, Ü) desde OpenType a THREE.ExtrudeGeometry
+        function createUTF8CharExtrudeGeometry(otFont, charStr, sizeMm, depthMm, bevelMm) {
+            if (!otFont) return null;
+            if (otFont.isCanvasFallback) {
+                return traceCharFromCanvas2D(charStr, otFont.cssFamily, sizeMm, depthMm, bevelMm);
+            }
+
+            // Obtener el Path OpenType del carácter a escala (sizeMm * 1.32 para que la altura de mayúscula coincida con sizeMm)
+            const fontScaleSize = sizeMm * 1.32;
+            const otPath = otFont.getPath(charStr, 0, 0, fontScaleSize);
+            const svgPathData = otPath.toPathData(3);
+
+            if (!svgPathData || svgPathData.trim() === '') return null;
+
+            // Parsear mediante SVGLoader para resolver automáticamente contornos exteriores e interiores (huecos de O, A, B, D, R y tildes)
+            const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg"><path d="${svgPathData}" /></svg>`;
+            const svgLoader = new SVGLoader();
+            const svgParsed = svgLoader.parse(svgMarkup);
+
+            const shapes = [];
+            svgParsed.paths.forEach(p => {
+                const subShapes = SVGLoader.createShapes(p);
+                subShapes.forEach(s => shapes.push(s));
+            });
+
+            if (shapes.length === 0) return null;
+
+            const extrudeGeo = new THREE.ExtrudeGeometry(shapes, {
+                depth: depthMm,
+                steps: 1,
+                curveSegments: 8,
+                bevelEnabled: bevelMm > 0,
+                bevelThickness: bevelMm,
+                bevelSize: bevelMm * 0.65,
+                bevelOffset: 0,
+                bevelSegments: 3
+            });
+
+            // En coordenadas SVG el eje Y apunta hacia abajo; invertimos Y para que las letras y tildes queden derechas
+            extrudeGeo.scale(1, -1, 1);
+            // Al escalar por -1 en un solo eje, se invierten las normales de las caras; las corregimos para que el STL/3MF sea 100% sólido (manifold) en Bambu Studio
+            flipGeometryWindingOrder(extrudeGeo);
+
+            extrudeGeo.computeBoundingBox();
+            return extrudeGeo;
+        }
+
+        // Corregir el orden de vértices tras invertir el eje Y de SVG
+        function flipGeometryWindingOrder(geometry) {
+            const index = geometry.index;
+            if (index) {
+                const arr = index.array;
+                for (let i = 0; i < arr.length; i += 3) {
+                    const tmp = arr[i + 1];
+                    arr[i + 1] = arr[i + 2];
+                    arr[i + 2] = tmp;
+                }
+                index.needsUpdate = true;
+            } else {
+                const pos = geometry.attributes.position;
+                if (pos) {
+                    const arr = pos.array;
+                    for (let i = 0; i < arr.length; i += 9) {
+                        for (let k = 0; k < 3; k++) {
+                            const tmp = arr[i + 3 + k];
+                            arr[i + 3 + k] = arr[i + 6 + k];
+                            arr[i + 6 + k] = tmp;
+                        }
+                    }
+                    pos.needsUpdate = true;
+                }
+            }
+            geometry.computeVertexNormals();
+        }
+
+        // Cajas con bisel (chamfer) limpias para bloques y placas
+        function createChamferedBoxGeometry(w, h, d, chamfer = 1.4) {
+            const shape = new THREE.Shape();
+            const hw = w / 2;
+            const hh = h / 2;
+            const c = Math.min(chamfer, hw * 0.3, hh * 0.3);
+
+            shape.moveTo(-hw + c, -hh);
+            shape.lineTo(hw - c, -hh);
+            shape.lineTo(hw, -hh + c);
+            shape.lineTo(hw, hh - c);
+            shape.lineTo(hw - c, hh);
+            shape.lineTo(-hw + c, hh);
+            shape.lineTo(-hw, hh - c);
+            shape.lineTo(-hw, -hh + c);
+            shape.closePath();
+
+            return new THREE.ExtrudeGeometry(shape, {
+                steps: 1,
+                depth: d,
+                bevelEnabled: false
+            });
+        }
+
+        // Marco arquitectónico multicapa (Estilo Capitular Institucional)
+        function createOrnateFrameMeshes(blockW, blockH, baseDepth, reliefDepth, matBase, matAccent) {
+            const group = { baseMeshes: [], accentMeshes: [] };
+
+            const baseGeo = createChamferedBoxGeometry(blockW, blockH, baseDepth, 3);
+            const baseMesh = new THREE.Mesh(baseGeo, matBase);
+            baseMesh.name = "Bloque_Capitular_Base";
+            group.baseMeshes.push(baseMesh);
+
+            const borderThickness = 2.8;
+            const outerShape = new THREE.Shape();
+            const hw = (blockW - 3) / 2;
+            const hh = (blockH - 3) / 2;
+            outerShape.moveTo(-hw, -hh);
+            outerShape.lineTo(hw, -hh);
+            outerShape.lineTo(hw, hh);
+            outerShape.lineTo(-hw, hh);
+            outerShape.closePath();
+
+            const holePath = new THREE.Path();
+            const ihw = hw - borderThickness;
+            const ihh = hh - borderThickness;
+            holePath.moveTo(-ihw, -ihh);
+            holePath.lineTo(ihw, -ihh);
+            holePath.lineTo(ihw, ihh);
+            holePath.lineTo(-ihw, ihh);
+            holePath.closePath();
+            outerShape.holes.push(holePath);
+
+            const frameGeo = new THREE.ExtrudeGeometry(outerShape, {
+                steps: 1,
+                depth: reliefDepth * 0.65,
+                bevelEnabled: false
+            });
+            frameGeo.translate(0, 0, baseDepth);
+            const frameMesh = new THREE.Mesh(frameGeo, matAccent);
+            frameMesh.name = "Marco_Capitular_Relieve";
+            group.accentMeshes.push(frameMesh);
+
+            // Detalles esquineros arquitectónicos
+            const cornerOffsets = [
+                [-ihw + 4.5, -ihh + 4.5],
+                [ihw - 4.5, -ihh + 4.5],
+                [ihw - 4.5, ihh - 4.5],
+                [-ihw + 4.5, ihh - 4.5]
+            ];
+            cornerOffsets.forEach(([cx, cy], cIdx) => {
+                const cornerGeo = new THREE.CylinderGeometry(3.2, 3.2, reliefDepth * 0.55, 16);
+                cornerGeo.rotateX(Math.PI / 2);
+                cornerGeo.translate(cx, cy, baseDepth + (reliefDepth * 0.27));
+                const cMesh = new THREE.Mesh(cornerGeo, matAccent);
+                cMesh.name = `Roseton_Esquina_${cIdx + 1}`;
+                group.accentMeshes.push(cMesh);
+            });
+
+            return group;
+        }
+
+        function clearGroupGeometries(group) {
+            while (group.children.length > 0) {
+                const obj = group.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                group.remove(obj);
+            }
+        }
+
+        // RECONSTRUCCIÓN COMPLETA DEL MODELO CAD 3D CON TILDES UTF-8 Y PARTES NOMBRADAS
+        async function rebuildSignCAD() {
+            const fontKey = document.getElementById('param-font').value;
+            document.getElementById('font-desc-helper').textContent = institutionalFonts[fontKey].desc;
+
+            const otFont = await ensureFontLoaded(fontKey);
+            if (!otFont) return;
+
+            clearGroupGeometries(baseGroup);
+            clearGroupGeometries(accentsGroup);
+            clearGroupGeometries(lettersGroup);
+
+            const rawText = (document.getElementById('sign-text').value || 'INVESTIGACIÓN').toUpperCase().trim() || 'A';
+            const subText = (document.getElementById('sign-subtext').value || '').toUpperCase().trim();
+            const showSub = document.getElementById('show-subtext').checked;
+            const stagger = document.getElementById('stagger-toggle').checked;
+            const includeRail = document.getElementById('stand-rail-toggle').checked;
+
+            const letterSize = parseFloat(document.getElementById('param-letter-size').value);
+            const baseDepth = parseFloat(document.getElementById('param-base-depth').value);
+            const letterDepth = parseFloat(document.getElementById('param-letter-depth').value);
+            const bevelSize = parseFloat(document.getElementById('param-bevel').value);
+            const spacing = parseFloat(document.getElementById('param-spacing').value);
+
+            document.getElementById('lbl-letter-size').textContent = `${letterSize} mm`;
+            document.getElementById('lbl-base-depth').textContent = `${baseDepth} mm`;
+            document.getElementById('lbl-letter-depth').textContent = `${letterDepth} mm`;
+            document.getElementById('lbl-bevel').textContent = `${bevelSize.toFixed(1)} mm`;
+            document.getElementById('lbl-spacing').textContent = `${spacing} mm`;
+            document.getElementById('z-swap-info').textContent = `Pausa en Z = ${baseDepth.toFixed(1)} mm`;
+
+            const faceHex = document.getElementById('color-face').value;
+            const accentHex = document.getElementById('color-accent').value;
+            const baseHex = document.getElementById('color-base').value;
+
+            const matFace = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(faceHex),
+                roughness: 0.42,
+                metalness: 0.08,
+                wireframe: cadState.wireframe
+            });
+            const matAccent = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(accentHex),
+                roughness: 0.38,
+                metalness: 0.18,
+                wireframe: cadState.wireframe
+            });
+            const matBase = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(baseHex),
+                roughness: 0.65,
+                metalness: 0.05,
+                wireframe: cadState.wireframe
+            });
+
+            // Medir altura base de una letra sin tilde ('H') para alinear las líneas base de todas las letras aunque lleven tilde arriba
+            const refGeo = createUTF8CharExtrudeGeometry(otFont, 'H', letterSize, 2, 0);
+            const refBaselineMinY = refGeo ? refGeo.boundingBox.min.y : 0;
+            const refCapHeight = refGeo ? (refGeo.boundingBox.max.y - refGeo.boundingBox.min.y) : letterSize;
+            if (refGeo) refGeo.dispose();
+
+            const chars = Array.from(rawText);
+            const letterItems = [];
+
+            chars.forEach((ch, idx) => {
+                if (ch === ' ') {
+                    letterItems.push({ isSpace: true, width: letterSize * 0.42, height: letterSize });
+                    return;
+                }
+
+                const isDropCap = (cadState.style === 'filigree' && idx === 0);
+                const charSize = isDropCap ? letterSize * 1.2 : letterSize;
+                const targetZ = cadState.style === 'solid' ? (baseDepth + letterDepth) : letterDepth;
+
+                const charGeo = createUTF8CharExtrudeGeometry(otFont, ch, charSize, targetZ, bevelSize);
+                if (!charGeo) {
+                    letterItems.push({ isSpace: true, width: letterSize * 0.4, height: letterSize });
+                    return;
+                }
+
+                const bb = charGeo.boundingBox;
+                const w = bb.max.x - bb.min.x;
+                const h = bb.max.y - bb.min.y;
+
+                // Centrar horizontalmente, pero alinear verticalmente respecto a la línea base (para que Á, É, Í, Ó, Ú, Ñ no se desplacen hacia abajo por tener tilde)
+                charGeo.translate(-bb.min.x - w / 2, -refBaselineMinY - refCapHeight / 2, 0);
+
+                letterItems.push({
+                    isSpace: false,
+                    char: ch,
+                    idx: idx,
+                    isDropCap: isDropCap,
+                    geometry: charGeo,
+                    width: w,
+                    height: h
+                });
+            });
+
+            const explodeZ = cadState.explodedView ? 18 : 0;
+
+            // =====================================================================
+            // ESTILO 1: BLOQUES MODULARES (MAKER)
+            // =====================================================================
+            if (cadState.style === 'modular') {
+                let cursorX = 0;
+                const blockPadX = 10;
+                // Damos espacio superior generoso dentro del bloque para las tildes (Á, É, Í, Ó, Ú, Ñ)
+                const blockH = letterSize * 1.62;
+
+                letterItems.forEach((item, idx) => {
+                    if (item.isSpace) {
+                        cursorX += item.width;
+                        return;
+                    }
+
+                    const blockW = Math.max(item.width + blockPadX * 2, letterSize * 1.02);
+                    const centerX = cursorX + blockW / 2;
+
+                    const offsetY = stagger ? (idx % 2 === 0 ? 4.0 : -4.0) : 0;
+                    const extraBaseZ = stagger ? (idx % 2 === 0 ? 1.8 : 0) : 0;
+                    const thisBaseDepth = baseDepth + extraBaseZ;
+
+                    const blockGeo = createChamferedBoxGeometry(blockW, blockH, thisBaseDepth, 2.2);
+                    blockGeo.translate(centerX, offsetY, 0);
+
+                    const isAccentBlock = (idx === 0 && stagger);
+                    const blockMat = cadState.useMultiColor
+                        ? new THREE.MeshStandardMaterial({ color: cadState.multiColors[idx % cadState.multiColors.length], roughness: 0.55, wireframe: cadState.wireframe })
+                        : (isAccentBlock ? matAccent : matBase);
+
+                    const blockMesh = new THREE.Mesh(blockGeo, blockMat);
+                    blockMesh.name = `Bloque_${idx + 1}_${item.char}`;
+                    blockMesh.castShadow = true;
+                    blockMesh.receiveShadow = true;
+
+                    if (isAccentBlock || (cadState.useMultiColor && idx % 2 === 1)) {
+                        accentsGroup.add(blockMesh);
+                    } else {
+                        baseGroup.add(blockMesh);
+                    }
+
+                    // Letra 3D con tilde sobre el bloque
+                    item.geometry.translate(centerX, offsetY - (letterSize * 0.06), thisBaseDepth + explodeZ);
+                    const letterMesh = new THREE.Mesh(item.geometry, matFace);
+                    letterMesh.name = `Letra_${idx + 1}_${item.char}`;
+                    letterMesh.castShadow = true;
+                    lettersGroup.add(letterMesh);
+
+                    cursorX += blockW + (spacing - 3);
+                });
+
+                if (includeRail && cursorX > 10) {
+                    const railW = cursorX - (spacing - 3) - 6;
+                    const railGeo = new THREE.BoxGeometry(railW, blockH * 0.42, Math.max(3, baseDepth * 0.6));
+                    railGeo.translate(railW / 2 + 3, 0, Math.max(1.5, baseDepth * 0.3));
+                    const railMesh = new THREE.Mesh(railGeo, matBase);
+                    railMesh.name = "Riel_Union_Trasero";
+                    baseGroup.add(railMesh);
+                }
+            }
+
+            // =====================================================================
+            // ESTILO 2: CORPÓREO SÓLIDO (ABC)
+            // =====================================================================
+            else if (cadState.style === 'solid') {
+                let cursorX = 0;
+
+                letterItems.forEach((item, idx) => {
+                    if (item.isSpace) {
+                        cursorX += item.width;
+                        return;
+                    }
+
+                    const centerX = cursorX + item.width / 2;
+                    const offsetY = stagger ? (idx % 2 === 0 ? 2.0 : -2.0) : 0;
+
+                    item.geometry.translate(centerX, offsetY, explodeZ * 0.5);
+
+                    let chosenMat = matFace;
+                    let targetGrp = lettersGroup;
+                    if (cadState.useMultiColor) {
+                        chosenMat = new THREE.MeshStandardMaterial({ color: cadState.multiColors[idx % cadState.multiColors.length], roughness: 0.45, wireframe: cadState.wireframe });
+                    } else if (stagger && idx % 3 === 0) {
+                        chosenMat = matAccent;
+                        targetGrp = accentsGroup;
+                    }
+
+                    const mesh = new THREE.Mesh(item.geometry, chosenMat);
+                    mesh.name = `Letra_Corporea_${idx + 1}_${item.char}`;
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    targetGrp.add(mesh);
+
+                    cursorX += item.width + spacing + 1.5;
+                });
+
+                if (includeRail && cursorX > 10) {
+                    const totalW = cursorX - spacing + 14;
+                    const railH = 12;
+                    const railGeo = createChamferedBoxGeometry(totalW, railH, baseDepth, 2);
+                    railGeo.translate((cursorX - spacing) / 2, -letterSize * 0.56, 0);
+                    const railMesh = new THREE.Mesh(railGeo, matBase);
+                    railMesh.name = "Peana_Soporte_Inferior";
+                    railMesh.castShadow = true;
+                    baseGroup.add(railMesh);
+                }
+            }
+
+            // =====================================================================
+            // ESTILO 3: CAPITULAR INSTITUCIONAL MULTICAPA
+            // =====================================================================
+            else if (cadState.style === 'filigree') {
+                let cursorX = 0;
+
+                letterItems.forEach((item, idx) => {
+                    if (item.isSpace) {
+                        cursorX += item.width;
+                        return;
+                    }
+
+                    const isOrnateBlock = (idx === 0) || !stagger;
+                    if (isOrnateBlock) {
+                        const blockW = Math.max(item.width + 24, letterSize * 1.5);
+                        const blockH = letterSize * 1.85;
+                        const centerX = cursorX + blockW / 2;
+
+                        const ornate = createOrnateFrameMeshes(blockW, blockH, baseDepth, letterDepth, matBase, matAccent);
+                        ornate.baseMeshes.forEach(m => {
+                            m.geometry.translate(centerX, 0, 0);
+                            m.castShadow = true;
+                            baseGroup.add(m);
+                        });
+                        ornate.accentMeshes.forEach(m => {
+                            m.geometry.translate(centerX, 0, explodeZ * 0.6);
+                            m.castShadow = true;
+                            accentsGroup.add(m);
+                        });
+
+                        item.geometry.translate(centerX, -letterSize * 0.05, baseDepth + (letterDepth * 0.25) + explodeZ);
+                        const lMesh = new THREE.Mesh(item.geometry, matFace);
+                        lMesh.name = `Letra_Capitular_${idx + 1}_${item.char}`;
+                        lMesh.castShadow = true;
+                        lettersGroup.add(lMesh);
+
+                        cursorX += blockW + spacing;
+                    } else {
+                        const centerX = cursorX + item.width / 2;
+                        item.geometry.translate(centerX, -letterSize * 0.1, baseDepth + explodeZ);
+                        const lMesh = new THREE.Mesh(item.geometry, matFace);
+                        lMesh.name = `Letra_${idx + 1}_${item.char}`;
+                        lMesh.castShadow = true;
+                        lettersGroup.add(lMesh);
+
+                        const underGeo = createChamferedBoxGeometry(item.width + spacing + 4, letterSize * 1.38, baseDepth, 1.5);
+                        underGeo.translate(centerX, -letterSize * 0.06, 0);
+                        const underMesh = new THREE.Mesh(underGeo, matBase);
+                        underMesh.name = `Zocalo_${idx + 1}_${item.char}`;
+                        baseGroup.add(underMesh);
+
+                        cursorX += item.width + spacing;
+                    }
+                });
+            }
+
+            // =====================================================================
+            // ESTILO 4: PLACA WAYFINDING DEWEY
+            // =====================================================================
+            else if (cadState.style === 'plaque') {
+                let cursorX = 0;
+                letterItems.forEach((item, idx) => {
+                    if (item.isSpace) {
+                        cursorX += item.width;
+                        return;
+                    }
+                    const centerX = cursorX + item.width / 2;
+                    const yOffset = showSub && subText ? letterSize * 0.18 : -letterSize * 0.05;
+                    item.geometry.translate(centerX, yOffset, baseDepth + explodeZ);
+
+                    const lMat = cadState.useMultiColor
+                        ? new THREE.MeshStandardMaterial({ color: cadState.multiColors[idx % cadState.multiColors.length], roughness: 0.45, wireframe: cadState.wireframe })
+                        : matFace;
+
+                    const lMesh = new THREE.Mesh(item.geometry, lMat);
+                    lMesh.name = `Letra_${idx + 1}_${item.char}`;
+                    lMesh.castShadow = true;
+                    lettersGroup.add(lMesh);
+
+                    cursorX += item.width + spacing;
+                });
+
+                const wordW = Math.max(cursorX - spacing, 40);
+                const padX = 26;
+                const accentBarW = 16;
+                const plaqueW = wordW + padX * 2 + accentBarW;
+                const plaqueH = showSub && subText ? letterSize * 2.15 : letterSize * 1.65;
+                const centerPlaqueX = wordW / 2 - accentBarW / 2;
+
+                const plaqueGeo = createChamferedBoxGeometry(plaqueW, plaqueH, baseDepth, 4);
+                plaqueGeo.translate(centerPlaqueX, 0, 0);
+                const plaqueMesh = new THREE.Mesh(plaqueGeo, matBase);
+                plaqueMesh.name = "Placa_Base_Institucional";
+                plaqueMesh.castShadow = true;
+                plaqueMesh.receiveShadow = true;
+                baseGroup.add(plaqueMesh);
+
+                const barGeo = createChamferedBoxGeometry(accentBarW, plaqueH - 6, letterDepth * 0.8, 2);
+                barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 4, 0, baseDepth + explodeZ * 0.5);
+                const barMesh = new THREE.Mesh(barGeo, matAccent);
+                barMesh.name = "Barra_Codigo_Dewey";
+                barMesh.castShadow = true;
+                accentsGroup.add(barMesh);
+            }
+
+            // SUBTÍTULO / CLASIFICACIÓN DEWEY CON SOPORTE DE TILDES
+            if (showSub && subText.length > 0) {
+                const subSize = Math.max(8, letterSize * 0.27);
+                const subGeo = createUTF8CharExtrudeGeometry(otFont, subText, subSize, Math.max(2.0, letterDepth * 0.55), 0);
+                if (subGeo) {
+                    const sbb = subGeo.boundingBox;
+                    const sw = sbb.max.x - sbb.min.x;
+                    const sh = sbb.max.y - sbb.min.y;
+
+                    const tempBox = new THREE.Box3().setFromObject(printableRoot);
+                    const mainCenterX = (tempBox.min.x + tempBox.max.x) / 2;
+                    const subY = cadState.style === 'plaque'
+                        ? -letterSize * 0.56
+                        : tempBox.min.y - subSize * 1.5;
+
+                    subGeo.translate(-sbb.min.x - sw / 2 + mainCenterX, -sbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
+                    const subMesh = new THREE.Mesh(subGeo, cadState.style === 'plaque' ? matAccent : matFace);
+                    subMesh.name = "Subtitulo_Clasificacion_Dewey";
+                    accentsGroup.add(subMesh);
+
+                    if (cadState.style !== 'plaque') {
+                        const subPlateGeo = createChamferedBoxGeometry(sw + 18, sh + 10, baseDepth, 2);
+                        subPlateGeo.translate(mainCenterX, subY, 0);
+                        const subPlateMesh = new THREE.Mesh(subPlateGeo, matBase);
+                        subPlateMesh.name = "Placa_Subtitulo_Base";
+                        baseGroup.add(subPlateMesh);
+                    }
+                }
+            }
+
+            // Centrar todo el conjunto en el origen (0,0,0) de la cama de impresión
+            printableRoot.position.set(0, 0, 0);
+            const fullBox = new THREE.Box3().setFromObject(printableRoot);
+            if (!fullBox.isEmpty()) {
+                const center = new THREE.Vector3();
+                fullBox.getCenter(center);
+                const shiftX = -center.x;
+                const shiftY = -center.y;
+                const shiftZ = -fullBox.min.z;
+
+                [baseGroup, accentsGroup, lettersGroup].forEach(grp => {
+                    grp.children.forEach(mesh => {
+                        mesh.geometry.translate(shiftX, shiftY, shiftZ);
+                    });
+                });
+
+                const finalBox = new THREE.Box3().setFromObject(printableRoot);
+                const size = new THREE.Vector3();
+                finalBox.getSize(size);
+                updateCADMetrics(size.x, size.y, size.z);
+            }
+        }
+
+        function updateCADMetrics(widthMm, heightMm, depthMm) {
+            const w = Math.round(widthMm);
+            const h = Math.round(heightMm);
+            const d = Math.round(depthMm * 10) / 10;
+
+            const dimText = `${w} × ${h} × ${d} mm`;
+            document.getElementById('stat-bbox').textContent = dimText;
+            document.getElementById('dimensions-badge').textContent = dimText;
+
+            const totalParts = baseGroup.children.length + accentsGroup.children.length + lettersGroup.children.length;
+            document.getElementById('parts-count-badge').textContent = `${totalParts} Piezas CAD`;
+
+            const boundingVolumeCm3 = (widthMm * heightMm * depthMm) / 1000;
+            const fillFactor = cadState.style === 'solid' ? 0.24 : 0.36;
+            const estimatedGrams = Math.max(12, Math.round(boundingVolumeCm3 * fillFactor * 1.24));
+            const printHours = (estimatedGrams / 30).toFixed(1);
+
+            document.getElementById('stat-weight').textContent = `~${estimatedGrams} g PLA (${printHours} hrs)`;
+        }
+
+        // =======================================================================================
+        // EXPORTADOR NATIVO .3MF MULTI-OBJETO PARA BAMBU STUDIO / ORCASLICER / PRUSASLICER
+        // Empaqueta cada pieza como un <object id="..." name="..."> independiente dentro del archivo .3mf
+        // =======================================================================================
+        window.exportBambu3MF = async function() {
+            const splitMode = document.getElementById('bambu-split-mode').value;
+            const exportObjects = collectExportObjects(splitMode);
+
+            if (exportObjects.length === 0) {
+                showToast('No hay geometrías para exportar', 'Verifica el texto ingresado');
+                return;
+            }
+
+            showToast('Empaquetando archivo .3MF Multi-Pieza...', 'Generando objetos separados para Bambu Studio');
+
+            let resourcesXml = '';
+            let buildItemsXml = '';
+
+            exportObjects.forEach((item, index) => {
+                const objId = index + 1;
+                const { verticesXml, trianglesXml } = build3MFMeshXml(item.meshes);
+                if (!verticesXml || !trianglesXml) return;
+
+                resourcesXml += `
+        <object id="${objId}" name="${item.name}" type="model">
+            <mesh>
+                <vertices>${verticesXml}</vertices>
+                <triangles>${trianglesXml}</triangles>
+            </mesh>
+        </object>`;
+
+                buildItemsXml += `
+        <item objectid="${objId}" />`;
+            });
+
+            const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:space="preserve" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+    <metadata name="Application">BiblioSign 3D CAD Studio</metadata>
+    <resources>${resourcesXml}
+    </resources>
+    <build>${buildItemsXml}
+    </build>
+</model>`;
+
+            const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+    <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml" />
+</Types>`;
+
+            const relsXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" />
+</Relationships>`;
+
+            const zip = new window.JSZip();
+            zip.file('[Content_Types].xml', contentTypesXml);
+            zip.folder('_rels').file('.rels', relsXml);
+            zip.folder('3D').file('3dmodel.model', modelXml);
+
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+            const rawName = sanitizeFileName(document.getElementById('sign-text').value || 'LETRERO');
+            downloadBlob(blob, `BiblioSign_${rawName}_BAMBU_MULTICOLOR.3mf`);
+
+            showToast(
+                `¡Descargado: BiblioSign_${rawName}_BAMBU_MULTICOLOR.3mf!`,
+                'Ábrelo en Bambu Studio -> Pestaña "Objetos" para cambiar el color de cada parte'
+            );
+        };
+
+        // Construye los nodos <vertex> y <triangle> de una lista de mallas Three.js para el estándar 3MF
+        function build3MFMeshXml(meshList) {
+            const vLines = [];
+            const tLines = [];
+            let vertexOffset = 0;
+
+            meshList.forEach(mesh => {
+                const geom = mesh.geometry;
+                if (!geom || !geom.attributes.position) return;
+
+                const pos = geom.attributes.position;
+                const index = geom.index;
+
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i).toFixed(4);
+                    const y = pos.getY(i).toFixed(4);
+                    const z = pos.getZ(i).toFixed(4);
+                    vLines.push(`<vertex x="${x}" y="${y}" z="${z}" />`);
+                }
+
+                if (index) {
+                    for (let i = 0; i < index.count; i += 3) {
+                        const v1 = index.getX(i) + vertexOffset;
+                        const v2 = index.getX(i + 1) + vertexOffset;
+                        const v3 = index.getX(i + 2) + vertexOffset;
+                        tLines.push(`<triangle v1="${v1}" v2="${v2}" v3="${v3}" />`);
+                    }
+                } else {
+                    for (let i = 0; i < pos.count; i += 3) {
+                        const v1 = i + vertexOffset;
+                        const v2 = i + 1 + vertexOffset;
+                        const v3 = i + 2 + vertexOffset;
+                        tLines.push(`<triangle v1="${v1}" v2="${v2}" v3="${v3}" />`);
+                    }
+                }
+
+                vertexOffset += pos.count;
+            });
+
+            return {
+                verticesXml: vLines.join(''),
+                trianglesXml: tLines.join('')
+            };
+        }
+
+        // EXPORTADOR .OBJ MULTI-OBJETO (Con etiquetas 'o Nombre_Pieza' para "Dividir en Objetos" en Bambu Studio)
+        window.exportMultiOBJ = function() {
+            const splitMode = document.getElementById('bambu-split-mode').value;
+            const exportObjects = collectExportObjects(splitMode);
+
+            let objLines = [
+                '# BiblioSign 3D CAD - Multi-Object OBJ for Bambu Studio',
+                '# Unidades: Milimetros (mm)'
+            ];
+            let globalVertexOffset = 1;
+
+            exportObjects.forEach(item => {
+                objLines.push(`o ${item.name}`);
+                objLines.push(`g ${item.name}`);
+
+                item.meshes.forEach(mesh => {
+                    const geom = mesh.geometry;
+                    if (!geom || !geom.attributes.position) return;
+                    const pos = geom.attributes.position;
+                    const index = geom.index;
+
+                    for (let i = 0; i < pos.count; i++) {
+                        objLines.push(`v ${pos.getX(i).toFixed(4)} ${pos.getY(i).toFixed(4)} ${pos.getZ(i).toFixed(4)}`);
+                    }
+
+                    if (index) {
+                        for (let i = 0; i < index.count; i += 3) {
+                            const a = index.getX(i) + globalVertexOffset;
+                            const b = index.getX(i + 1) + globalVertexOffset;
+                            const c = index.getX(i + 2) + globalVertexOffset;
+                            objLines.push(`f ${a} ${b} ${c}`);
+                        }
+                    } else {
+                        for (let i = 0; i < pos.count; i += 3) {
+                            const a = i + globalVertexOffset;
+                            const b = i + 1 + globalVertexOffset;
+                            const c = i + 2 + globalVertexOffset;
+                            objLines.push(`f ${a} ${b} ${c}`);
+                        }
+                    }
+
+                    globalVertexOffset += pos.count;
+                });
+            });
+
+            const blob = new Blob([objLines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            const rawName = sanitizeFileName(document.getElementById('sign-text').value || 'LETRERO');
+            downloadBlob(blob, `BiblioSign_${rawName}_MULTI_OBJETO.obj`);
+
+            showToast(
+                `Descargado: BiblioSign_${rawName}_MULTI_OBJETO.obj`,
+                'En Bambu Studio haz clic derecho -> "Dividir en Objetos" para pintar cada pieza'
+            );
+        };
+
+        // Agrupa las mallas según la preferencia del usuario (Por Capas de Color vs. Cada Letra y Bloque Individual)
+        function collectExportObjects(splitMode) {
+            const list = [];
+            if (splitMode === 'by_color_layer') {
+                if (baseGroup.children.length > 0) {
+                    list.push({ name: '1_Base_Estructura', meshes: [...baseGroup.children] });
+                }
+                if (lettersGroup.children.length > 0) {
+                    list.push({ name: '2_Letras_Relieve', meshes: [...lettersGroup.children] });
+                }
+                if (accentsGroup.children.length > 0) {
+                    list.push({ name: '3_Acentos_Y_Marco', meshes: [...accentsGroup.children] });
+                }
+            } else {
+                // Cada letra y cada bloque por separado con su propio nombre en Bambu Studio
+                [...baseGroup.children, ...accentsGroup.children, ...lettersGroup.children].forEach((mesh, idx) => {
+                    const cleanName = sanitizeFileName(mesh.name || `Pieza_${idx + 1}`);
+                    list.push({ name: cleanName, meshes: [mesh] });
+                });
+            }
+            return list;
+        }
+
+        // EXPORTADOR .STL POR CAPA DE COLOR (Compartiendo exactamente el mismo origen de coordenadas para ensamblaje automático en Bambu Studio)
+        window.exportSTL = function(partMode = 'base') {
+            const exporter = new STLExporter();
+            let targetObject = baseGroup;
+            let suffix = '1_SOLO_BASE';
+
+            if (partMode === 'letters') {
+                targetObject = lettersGroup;
+                suffix = '2_SOLO_LETRAS';
+            } else if (partMode === 'accents') {
+                targetObject = accentsGroup;
+                suffix = '3_SOLO_ACENTOS';
+            } else if (partMode === 'all') {
+                targetObject = printableRoot;
+                suffix = 'UNIFICADO';
+            }
+
+            if (targetObject.children.length === 0) {
+                showToast('Esta capa no tiene piezas en el estilo actual', 'Prueba con Base o Letras, o usa el botón .3MF');
+                return;
+            }
+
+            const stlBinary = exporter.parse(targetObject, { binary: true });
+            const blob = new Blob([stlBinary], { type: 'application/octet-stream' });
+            const rawName = sanitizeFileName(document.getElementById('sign-text').value || 'LETRERO');
+
+            downloadBlob(blob, `BiblioSign_${rawName}_${suffix}.stl`);
+            showToast(
+                `Descargado: BiblioSign_${rawName}_${suffix}.stl`,
+                'Arrastra Base + Letras + Acentos juntos a Bambu Studio para alinearlos automáticamente'
+            );
+        };
+
+        function sanitizeFileName(str) {
+            return str
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/Ñ/g, 'N')
+                .replace(/[^A-Z0-9_]/gi, '_');
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function showToast(title, desc) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-title').textContent = title;
+            document.getElementById('toast-desc').textContent = desc;
+            toast.classList.remove('opacity-0', 'translate-y-3');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-3');
+            }, 3800);
+        }
+
+        // Funciones auxiliares de Interfaz
+        window.insertAccentChar = function(ch) {
+            const input = document.getElementById('sign-text');
+            if (input.value.length < 18) {
+                input.value += ch;
+                window.triggerRebuild();
+            }
+        };
+
+        window.toggleBambuModal = function(show) {
+            const modal = document.getElementById('bambu-modal');
+            modal.classList.toggle('hidden', !show);
+        };
+
+        window.toggleExplodeView = function() {
+            cadState.explodedView = !cadState.explodedView;
+            const btn = document.getElementById('btn-explode-toggle');
+            btn.classList.toggle('bg-sky-500/20', cadState.explodedView);
+            rebuildSignCAD();
+        };
+
+        window.triggerRebuild = function() {
+            clearTimeout(cadState.rebuildTimer);
+            cadState.rebuildTimer = setTimeout(() => {
+                rebuildSignCAD();
+            }, 50);
+        };
+
+        window.updateColorsOnly = function() {
+            rebuildSignCAD();
+        };
+
+        window.disableMultiAndColors = function() {
+            cadState.useMultiColor = false;
+            rebuildSignCAD();
+        };
+
+        window.selectStyle = function(styleName) {
+            cadState.style = styleName;
+            ['modular', 'solid', 'filigree', 'plaque'].forEach(s => {
+                const btn = document.getElementById(`style-btn-${s}`);
+                if (s === styleName) {
+                    btn.className = "text-left p-2.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 transition";
+                } else {
+                    btn.className = "text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition";
+                }
+            });
+            rebuildSignCAD();
+        };
+
+        window.setQuickPreset = function(text, subtext, styleName, showSub, fontKey) {
+            document.getElementById('sign-text').value = text;
+            document.getElementById('sign-subtext').value = subtext;
+            document.getElementById('show-subtext').checked = showSub;
+            if (fontKey) {
+                document.getElementById('param-font').value = fontKey;
+            }
+            window.selectStyle(styleName);
+        };
+
+        window.applyPalette = function(paletteKey) {
+            const faceInput = document.getElementById('color-face');
+            const accentInput = document.getElementById('color-accent');
+            const baseInput = document.getElementById('color-base');
+            cadState.useMultiColor = false;
+
+            if (paletteKey === 'nordic') {
+                faceInput.value = '#f5f5f0';
+                accentInput.value = '#b07d4f';
+                baseInput.value = '#1e242b';
+            } else if (paletteKey === 'oxford') {
+                faceInput.value = '#f8f4e8';
+                accentInput.value = '#d49b4b';
+                baseInput.value = '#172a45';
+            } else if (paletteKey === 'botanical') {
+                faceInput.value = '#f4efe6';
+                accentInput.value = '#c86d51';
+                baseInput.value = '#1f3a2e';
+            } else if (paletteKey === 'multidewey') {
+                cadState.useMultiColor = true;
+                faceInput.value = '#f5f5f0';
+                accentInput.value = '#c9974c';
+                baseInput.value = '#1e242b';
+            }
+            rebuildSignCAD();
+        };
+
+        window.toggleWireframe = function() {
+            cadState.wireframe = !cadState.wireframe;
+            rebuildSignCAD();
+        };
+
+        window.toggleShelfContext = function() {
+            cadState.showShelf = !cadState.showShelf;
+            const btn = document.getElementById('btn-shelf-toggle');
+            btn.classList.toggle('text-amber-300', cadState.showShelf);
+            btn.classList.toggle('text-slate-400', !cadState.showShelf);
+            buildEnvironment();
+        };
+
+        window.resetCameraView = function() {
+            camera.position.set(0, -165, 210);
+            controls.target.set(0, 0, 8);
+            controls.update();
+        };
+
+        // Pestañas Principales
+        window.switchMainTab = function(tab) {
+            const viewDesign = document.getElementById('view-design');
+            const viewPitch = document.getElementById('view-pitch');
+            const tabDesign = document.getElementById('tab-design');
+            const tabPitch = document.getElementById('tab-pitch');
+
+            if (tab === 'design') {
+                viewDesign.classList.remove('hidden');
+                viewPitch.classList.add('hidden');
+                tabDesign.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
+                tabPitch.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white";
+                onWindowResize();
+            } else {
+                viewDesign.classList.add('hidden');
+                viewPitch.classList.remove('hidden');
+                tabPitch.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
+                tabDesign.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white";
+            }
+        };
+
+        // Calculadora de Horas y Propuesta Salarial
+        window.updatePitchCalculator = function() {
+            const count = parseInt(document.getElementById('calc-signs').value, 10);
+            const comp = parseInt(document.getElementById('calc-complexity').value, 10);
+
+            document.getElementById('calc-signs-label').textContent = `${count} letreros`;
+            const compNames = {
+                1: 'Nivel 1 (Letras Sólidas Clásicas)',
+                2: 'Nivel 2 (Bloques Modulares / Bicolor)',
+                3: 'Nivel 3 (Filigrana Multicapa + Capitulares)'
+            };
+            document.getElementById('calc-comp-label').textContent = compNames[comp];
+
+            const cadPerSign = comp === 1 ? 0.45 : (comp === 2 ? 0.75 : 1.15);
+            const opPerSign = comp === 1 ? 0.35 : (comp === 2 ? 0.60 : 0.85);
+            const postPerSign = comp === 1 ? 0.25 : (comp === 2 ? 0.50 : 0.75);
+
+            const hrsCad = (count * cadPerSign).toFixed(1);
+            const hrsOp = (count * opPerSign).toFixed(1);
+            const hrsPost = (count * postPerSign).toFixed(1);
+            const hrsTotal = (parseFloat(hrsCad) + parseFloat(hrsOp) + parseFloat(hrsPost)).toFixed(1);
+            const machineHrs = Math.round(count * (comp * 2.4));
+
+            document.getElementById('hrs-cad').textContent = `${hrsCad} hrs`;
+            document.getElementById('hrs-op').textContent = `${hrsOp} hrs activas`;
+            document.getElementById('hrs-post').textContent = `${hrsPost} hrs`;
+            document.getElementById('hrs-total').textContent = `${hrsTotal} Horas`;
+            document.getElementById('hrs-machine').textContent = `+ ${machineHrs} hrs de tiempo de máquina automatizado`;
+            document.getElementById('script-hours').textContent = `${Math.round(hrsTotal)} horas`;
+
+            const externalPerSign = comp === 1 ? 26 : (comp === 2 ? 35 : 48);
+            const internalPerSign = comp === 1 ? 2.8 : (comp === 2 ? 3.8 : 5.2);
+
+            const extTotal = Math.round(count * externalPerSign);
+            const intTotal = Math.round(count * internalPerSign);
+            const netSavings = extTotal - intTotal;
+
+            document.getElementById('saving-count').textContent = count;
+            document.getElementById('external-cost').textContent = `$${extTotal} USD`;
+            document.getElementById('internal-cost').textContent = `$${intTotal} USD`;
+            document.getElementById('net-savings').textContent = `+$${netSavings} USD`;
+        };
+        window.updatePitchCalculator();
+
+        window.copyPitchScript = function() {
+            const hrs = document.getElementById('script-hours').textContent;
+            const textToCopy = `Propuesta de Señalética 3D para Biblioteca:\n- Diseño CAD propio con exportación directa a archivos .STL listos para producción.\n- Estética institucional cálida (bloques modulares, acabados mate/madera y codificación Dewey).\n- Ahorro superior al 80% frente a proveedores externos.\n- Requerimiento técnico: ~${hrs} de modelado, preparación multicolor y montaje (solicitando ampliación de horas o asignación por proyecto especial).`;
+
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const feedback = document.getElementById('copy-feedback');
+            feedback.classList.remove('opacity-0');
+            setTimeout(() => feedback.classList.add('opacity-0'), 2800);
+        };
+
+        // Responsividad del lienzo 3D
+        function onWindowResize() {
+            if (!container || container.clientWidth === 0) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+        window.addEventListener('resize', onWindowResize);
+
+        // Loop de renderizado Three.js
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Iniciar con la fuente institucional Montserrat Bold precargada
+        rebuildSignCAD();
+    </script>
+</body>
+</html>

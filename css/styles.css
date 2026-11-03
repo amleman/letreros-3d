@@ -1,0 +1,45 @@
+/* Tipografías locales */
+@font-face {
+    font-family: 'Bebas Neue';
+    src: url('../fonts/bebasneue.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Estilos globales y personalizaciones para BiblioSign 3D */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0b1120;
+    color: #f8fafc;
+    overflow-x: hidden;
+}
+
+/* Scrollbar estilizado en modo oscuro */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* Sliders con acento dorado/ámbar */
+input[type="range"] {
+    accent-color: #f59e0b;
+}
+
+/* Color pickers estilizados */
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+}
