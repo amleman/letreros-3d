@@ -60,6 +60,50 @@ export function traceCharFromCanvas2D(charStr, cssFamily, sizeMm, depthMm, bevel
     return geo;
 }
 
+// Mapa glifo → glifo de "números alineados" (OpenType `lnum`) por fuente
+const liningFigureMaps = new WeakMap();
+
+/**
+ * Algunas fuentes elegantes (p. ej. Playfair Display) usan por defecto números de estilo antiguo:
+ * más bajos que las mayúsculas y con 3, 4, 5, 7, 9 bajando de la línea base. Si la fuente trae su
+ * variante `lnum` (números a altura de mayúscula, dibujados por el propio tipógrafo), la usamos.
+ */
+function getLiningFigureMap(otFont) {
+    if (liningFigureMaps.has(otFont)) return liningFigureMaps.get(otFont);
+    const map = new Map();
+    try {
+        const subs = otFont.substitution?.getSingle('lnum', 'latn', 'dflt')
+            || otFont.substitution?.getSingle('lnum', 'DFLT', 'dflt')
+            || [];
+        subs.forEach(({ sub, by }) => map.set(sub, by));
+    } catch (e) {
+        // Fuente sin tabla GSUB: se usan sus números tal cual
+    }
+    liningFigureMaps.set(otFont, map);
+    return map;
+}
+
+/**
+ * Igual que otFont.getPath, pero sustituyendo los dígitos por sus versiones alineadas a mayúsculas
+ */
+function getTextPath(otFont, text, fontSize) {
+    const lining = getLiningFigureMap(otFont);
+    if (lining.size === 0 || !/[0-9]/.test(text)) {
+        return otFont.getPath(text, 0, 0, fontSize);
+    }
+
+    const scale = fontSize / otFont.unitsPerEm;
+    const glyphs = otFont.stringToGlyphs(text).map(g => (lining.has(g.index) ? otFont.glyphs.get(lining.get(g.index)) : g));
+    const path = new window.opentype.Path();
+    let x = 0;
+    glyphs.forEach((glyph, i) => {
+        path.extend(glyph.getPath(x, 0, fontSize));
+        x += glyph.advanceWidth * scale;
+        if (i < glyphs.length - 1) x += otFont.getKerningValue(glyph, glyphs[i + 1]) * scale;
+    });
+    return path;
+}
+
 /**
  * CONVERSOR VECTORIAL UTF-8: Convierte cualquier carácter (incluyendo Á, É, Í, Ó, Ú, Ñ, Ü) desde OpenType a THREE.ExtrudeGeometry
  */
@@ -71,7 +115,7 @@ export function createUTF8CharExtrudeGeometry(otFont, charStr, sizeMm, depthMm, 
 
     // Escala proporcional respecto al tamaño nominal en mm
     const fontScaleSize = sizeMm * 1.32;
-    const otPath = otFont.getPath(charStr, 0, 0, fontScaleSize);
+    const otPath = getTextPath(otFont, charStr, fontScaleSize);
     const svgPathData = otPath.toPathData(3);
 
     if (!svgPathData || svgPathData.trim() === '') return null;

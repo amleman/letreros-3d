@@ -867,6 +867,22 @@ export function createCeilingSuspendedAssembly(width, height, baseDepth, options
         return { tabGeo, ringGeo };
     }
 
+    // División automática por partes: el panel lo construye segmentation.js; aquí solo argollas y rieles
+    if (options.forSegmentation) {
+        const leftHanger = createCeilingHangerGeo(-hangerOffsetX, hh, baseDepth);
+        const rightHanger = createCeilingHangerGeo(hangerOffsetX, hh, baseDepth);
+        return {
+            hangerTabs: [leftHanger.tabGeo, rightHanger.tabGeo],
+            rings: [leftHanger.ringGeo, rightHanger.ringGeo],
+            rails: [
+                { y: hh - railH / 2, h: railH, d: railDepth, name: 'Riel_Superior' },
+                { y: -hh + railH / 2, h: railH, d: railDepth, name: 'Riel_Inferior' }
+            ],
+            cornerR,
+            railH
+        };
+    }
+
     const baseMeshesInfo = [];
     const accentGeos = [];
 
@@ -939,57 +955,76 @@ export function createCeilingSuspendedAssembly(width, height, baseDepth, options
 /**
  * BRAZO ARQUITECTÓNICO DE HIERRO FORJADO CON PUNTA DE FLECHA Y VOLUTAS (Imagen 2)
  */
-export function createOrnateBracketGeometry(lengthMm = 210, heightMm = 160, thicknessMm = 5) {
-    const shape = new THREE.Shape();
+export function createOrnateBracketGeometry({
+    armLengthMm = 240,
+    armHeightMm = 10,
+    postHeightMm = 120,
+    postWidthMm = 12,
+    thicknessMm = 5.5,
+    eyeletXs = [60, 160],
+    braceRadiusMm = 40
+} = {}) {
+    // Sistema de coordenadas: cara derecha del montante en X = 0, cara superior del brazo en Y = 0.
+    // Todas las piezas se solapan ~1 mm para que el sólido impreso salga en una sola pieza.
+    const armH = armHeightMm;
+    const armL = armLengthMm;
+    const yc = -armH / 2;
 
-    const postW = 12;
-    const postH = heightMm;
-    const armH = 10;
-    const armL = lengthMm;
+    // Montante vertical (se atornilla al lateral del anaquel) con 2 perforaciones avellanables
+    const post = new THREE.Shape();
+    post.moveTo(-postWidthMm, -postHeightMm);
+    post.lineTo(0, -postHeightMm);
+    post.lineTo(0, 8);
+    post.lineTo(-postWidthMm, 8);
+    post.closePath();
+    [-postHeightMm + 14, -armH - 22].forEach(hy => {
+        const hole = new THREE.Path();
+        hole.absarc(-postWidthMm / 2, hy, 2.2, 0, Math.PI * 2, true);
+        post.holes.push(hole);
+    });
 
-    // Poste vertical
-    shape.moveTo(-postW, -postH * 0.35);
-    shape.lineTo(0, -postH * 0.35);
-    shape.lineTo(0, postH * 0.65);
-    shape.lineTo(-postW, postH * 0.65);
-    shape.closePath();
+    // Remate superior redondeado del montante
+    const finial = new THREE.Shape();
+    finial.absarc(-postWidthMm / 2, 8, postWidthMm * 0.62, 0, Math.PI * 2, false);
 
-    // Brazo horizontal superior con punta de flecha clásica
-    const armShape = new THREE.Shape();
-    armShape.moveTo(0, postH * 0.45);
-    armShape.lineTo(armL - 25, postH * 0.45);
-    armShape.lineTo(armL - 28, postH * 0.45 + 5);
-    armShape.lineTo(armL - 22, postH * 0.45 + 5);
-    armShape.lineTo(armL - 20, postH * 0.45 + 8);
-    armShape.lineTo(armL - 12, postH * 0.45 + 1);
-    armShape.lineTo(armL, postH * 0.45);
-    armShape.lineTo(armL - 12, postH * 0.45 - 1);
-    armShape.lineTo(armL - 20, postH * 0.45 - 8);
-    armShape.lineTo(armL - 22, postH * 0.45 - 5);
-    armShape.lineTo(armL - 28, postH * 0.45 - 5);
-    armShape.lineTo(armL - 25, postH * 0.45 - armH);
-    armShape.lineTo(0, postH * 0.45 - armH);
-    armShape.closePath();
+    // Brazo horizontal con punta de flecha clásica centrada en su eje
+    const arm = new THREE.Shape();
+    arm.moveTo(-1, 0);
+    arm.lineTo(armL - 24, 0);
+    arm.lineTo(armL - 29, yc + 10);
+    arm.lineTo(armL, yc);
+    arm.lineTo(armL - 29, yc - 10);
+    arm.lineTo(armL - 24, -armH);
+    arm.lineTo(-1, -armH);
+    arm.closePath();
 
-    // Volutas de filigrana en 'S'
-    const scrollShape = new THREE.Shape();
-    const cx = 45;
-    const cy = postH * 0.15;
-    scrollShape.absarc(cx, cy, 32, -Math.PI * 0.4, Math.PI * 0.9, false);
-    scrollShape.absarc(cx + 12, cy - 8, 22, Math.PI * 0.8, -Math.PI * 0.3, true);
-    scrollShape.closePath();
+    // Refuerzo curvo doble (cartabón de herrería) entre montante y brazo, centrado en la esquina interior
+    const createBraceBand = (outerR, bandW) => {
+        const s = new THREE.Shape();
+        const a0 = -Math.PI / 2 - 0.12;
+        const a1 = 0.12;
+        s.absarc(0, -armH, outerR, a0, a1, false);
+        s.absarc(0, -armH, outerR - bandW, a1, a0, true);
+        s.closePath();
+        return s;
+    };
+    const braceOuter = createBraceBand(braceRadiusMm, 5);
+    const braceInner = createBraceBand(braceRadiusMm * 0.55, 3.5);
 
-    // Ojales bajo el brazo
-    const loop1Shape = createEyeletShape(50, postH * 0.45 - armH);
-    const loop2Shape = createEyeletShape(150, postH * 0.45 - armH);
+    // Ojales bajo el brazo, alineados con las argollas de la placa
+    const eyelets = eyeletXs.map(x => createEyeletShape(x, -armH + 1, 6, 3.2));
 
-    const geoPost = new THREE.ExtrudeGeometry(shape, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 });
-    const geoArm = new THREE.ExtrudeGeometry(armShape, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 });
-    const geoScroll = new THREE.ExtrudeGeometry(scrollShape, { depth: thicknessMm * 0.9, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 });
-    const geoLoop1 = new THREE.ExtrudeGeometry(loop1Shape, { depth: thicknessMm, bevelEnabled: false });
-    const geoLoop2 = new THREE.ExtrudeGeometry(loop2Shape, { depth: thicknessMm, bevelEnabled: false });
+    const bevel = { bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 };
+    const geos = [
+        new THREE.ExtrudeGeometry(post, { depth: thicknessMm, ...bevel }),
+        new THREE.ExtrudeGeometry(finial, { depth: thicknessMm, ...bevel }),
+        new THREE.ExtrudeGeometry(arm, { depth: thicknessMm, ...bevel }),
+        new THREE.ExtrudeGeometry(braceOuter, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }),
+        new THREE.ExtrudeGeometry(braceInner, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }),
+        ...eyelets.map(e => new THREE.ExtrudeGeometry(e, { depth: thicknessMm, bevelEnabled: false }))
+    ];
 
-    return mergeGeometriesManually([geoPost, geoArm, geoScroll, geoLoop1, geoLoop2]);
+    return mergeGeometriesManually(geos);
 }
 
 function createEyeletShape(cx, topY, outerR = 6, innerR = 3.2) {
@@ -1003,8 +1038,9 @@ function createEyeletShape(cx, topY, outerR = 6, innerR = 3.2) {
 
 /**
  * PLACA COLGANTE CON MARCO INSET Y ARGOLLAS SUPERIORES E INFERIORES MODULARES (Imagen 2)
+ * `loopSpacing` debe ser igual en todas las placas para que las cadenas caigan verticales.
  */
-export function createHangingPlateMesh(width, height, depth, hasLowerLoops = true, matBase, matFrame) {
+export function createHangingPlateMesh(width, height, depth, hasLowerLoops = true, matBase, matFrame, loopSpacing = Math.min(100, width * 0.55)) {
     const group = { baseMesh: null, frameMesh: null, totalHeight: height };
     const hw = width / 2;
     const hh = height / 2;
@@ -1022,7 +1058,6 @@ export function createHangingPlateMesh(width, height, depth, hasLowerLoops = tru
     plateShape.absarc(-hw + cornerR, -hh + cornerR, cornerR, Math.PI, Math.PI * 1.5, false);
     plateShape.closePath();
 
-    const loopSpacing = Math.min(100, width * 0.55);
     const loopX1 = -loopSpacing / 2;
     const loopX2 = loopSpacing / 2;
 
@@ -1090,35 +1125,41 @@ export function createHangingPlateMesh(width, height, depth, hasLowerLoops = tru
 /**
  * ESLABÓN EN 'C' DESMONTABLE PARA IMPRESIÓN 3D
  */
-export function createChainLinkGeometry(lengthMm = 15, widthMm = 9.5, thicknessMm = 2.6) {
-    const shape = new THREE.Shape();
+export function createChainLinkGeometry(lengthMm = 14, widthMm = 11, thicknessMm = 2.5, gapMm = 1.6) {
+    // Contorno único en 'C' (sin agujeros): exterior + interior unidos por la abertura lateral.
+    // La abertura permite enganchar el eslabón en las argollas girándolo, sin pegamento.
     const hl = lengthMm / 2;
-    const hw = widthMm / 2;
-    const r = hw;
+    const r = widthMm / 2;
+    const ir = Math.max(1.8, r - thicknessMm);
+    const ihl = Math.max(ir + 0.1, hl - thicknessMm);
+    const straightOuter = hl - r;
+    const straightInner = ihl - ir;
+    const g = Math.min(gapMm / 2, Math.max(0.2, Math.min(straightOuter, straightInner) - 0.2));
 
-    const gapAngle = 0.32;
-    shape.absarc(0, hl - r, r, gapAngle, Math.PI, false);
-    shape.lineTo(-hw, -hl + r);
-    shape.absarc(0, -hl + r, r, Math.PI, Math.PI * 2, false);
-    shape.lineTo(hw, hl - r);
-    shape.absarc(0, hl - r, r, 0, gapAngle, false);
-
-    const innerR = Math.max(1.8, r - thicknessMm);
-    const innerHl = Math.max(1.5, hl - thicknessMm);
-    const hole = new THREE.Path();
-    hole.absarc(0, innerHl - innerR, innerR, 0, Math.PI * 2, true);
-    hole.lineTo(-innerR, -innerHl + innerR);
-    hole.absarc(0, -innerHl + innerR, innerR, 0, Math.PI, true);
-    hole.closePath();
-    shape.holes.push(hole);
+    const shape = new THREE.Shape();
+    shape.moveTo(r, g);
+    shape.lineTo(r, straightOuter);
+    shape.absarc(0, straightOuter, r, 0, Math.PI, false);
+    shape.lineTo(-r, -straightOuter);
+    shape.absarc(0, -straightOuter, r, Math.PI, Math.PI * 2, false);
+    shape.lineTo(r, -g);
+    shape.lineTo(ir, -g);
+    shape.lineTo(ir, -straightInner);
+    shape.absarc(0, -straightInner, ir, Math.PI * 2, Math.PI, true);
+    shape.lineTo(-ir, straightInner);
+    shape.absarc(0, straightInner, ir, Math.PI, 0, true);
+    shape.lineTo(ir, g);
+    shape.closePath();
 
     const geo = new THREE.ExtrudeGeometry(shape, {
         depth: thicknessMm,
         bevelEnabled: true,
-        bevelThickness: 0.4,
-        bevelSize: 0.3,
+        bevelThickness: 0.3,
+        bevelSize: 0.25,
         bevelSegments: 2
     });
+    // Centrado en Z para que pueda girarse 90° sobre su propio eje al formar la cadena
+    geo.translate(0, 0, -thicknessMm / 2);
     return geo;
 }
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BiblioSign 3D CAD & Bambu Studio .3MF/.STL Exporter</title>
+    <!-- Ícono del proyecto (pestaña del navegador) -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     
     <!-- Tailwind CSS vía CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -276,9 +278,7 @@
     <!-- Barra Superior -->
     <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                <i data-lucide="box" class="w-5 h-5 text-white"></i>
-            </div>
+            <img src="./favicon.svg" alt="BiblioSign 3D" class="w-10 h-10 rounded-xl shadow-lg shadow-amber-500/20 shrink-0">
             <div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">BiblioSign 3D CAD & Bambu Studio Exporter</h1>
@@ -295,6 +295,13 @@
                 <i data-lucide="eye" class="w-4 h-4"></i>
                 <span class="hidden sm:inline">Visor para Jefatura</span>
                 <span class="sm:hidden">Visor</span>
+            </a>
+
+            <!-- Vista previa exacta de lo que se publica en Netlify (solo diseños marcados con ★) -->
+            <a href="./visor.html?vitrina" target="_blank" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition" title="Ver exactamente lo que verán tus jefes en Netlify: solo los diseños marcados con ★ y tus horas de trabajo">
+                <i data-lucide="globe" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Vista previa Netlify</span>
+                <span class="sm:hidden">Netlify</span>
             </a>
 
             <!-- Botón de Exportar a Papel (Fondo Blanco) -->
@@ -385,16 +392,16 @@
                                 </div>
                             </div>
                             <textarea id="sign-text" rows="2" maxlength="90"
-                                class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-white font-bold tracking-wider uppercase text-xs sm:text-sm outline-none transition font-mono leading-tight resize-y"
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2 text-white font-bold tracking-wider text-xs sm:text-sm outline-none transition font-mono leading-tight resize-y"
                                 placeholder="Ej: SECCIÓN&#10;GUATEMALA (o separa con /)" oninput="window.triggerRebuild()">INVESTIGACIÓN</textarea>
-                            <span class="text-[10px] text-slate-500 block mt-0.5">Escribe en varias líneas pulsando Enter para textos largos que excedan una sola placa.</span>
+                            <span class="text-[10px] text-slate-500 block mt-0.5">Se respeta lo que escribas en mayúsculas y minúsculas (ej: "Laboratorio No. 2"). Enter = varias líneas.</span>
                         </div>
 
                         <div class="grid grid-cols-12 gap-2">
                             <div class="col-span-8">
                                 <label class="text-[11px] text-slate-400 block mb-1">Subtítulo / Clasificación Dewey</label>
                                 <input id="sign-subtext" type="text" value="SECCIÓN 001 • CONSULTA" maxlength="48"
-                                    class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 uppercase outline-none"
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none"
                                     oninput="window.triggerRebuild()">
                             </div>
                             <div class="col-span-4 flex items-end">
@@ -714,7 +721,7 @@
                                         <button type="button" onclick="const w = document.getElementById('param-ceiling-width'); if(w){ delete w.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-indigo-300 px-1 rounded">Auto</button>
                                         <span id="lbl-ceiling-width" class="font-mono text-indigo-400 font-bold">Auto</span>
                                     </div>
-                                    <input id="param-ceiling-width" type="range" min="140" max="460" step="5" value="230" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                                    <input id="param-ceiling-width" type="range" min="140" max="1200" step="5" value="230" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
                                 </div>
                                 <div>
                                     <div class="flex justify-between items-center mb-0.5 text-[10px]">
@@ -726,43 +733,57 @@
                                 </div>
                             </div>
 
-                            <!-- División en 2 partes para rótulos de techo grandes -->
-                            <div class="pt-1.5 border-t border-slate-800 space-y-2">
+                            <!-- DIVISIÓN AUTOMÁTICA POR PARTES (UNA POR CAMA DE 25 cm) CON COLA DE MILANO OCULTA -->
+                            <div class="pt-2 border-t border-slate-800 space-y-2">
                                 <label class="flex items-center gap-2 cursor-pointer select-none">
                                     <input id="ceiling-split-toggle" type="checkbox" onchange="const c = document.getElementById('ceiling-split-controls'); if (c) c.classList.toggle('hidden', !this.checked); window.triggerRebuild();" class="accent-indigo-500 rounded w-4 h-4">
                                     <span class="text-[11px] font-bold text-white flex items-center gap-1">
-                                        <i data-lucide="puzzle" class="w-3.5 h-3.5 text-indigo-400"></i>
-                                        Dividir en 2 Partes (Para rótulos de techo &gt; 25 cm)
+                                        <i data-lucide="scissors" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                        División automática por partes (camas de 25 cm)
                                     </span>
                                 </label>
 
                                 <div id="ceiling-split-controls" class="hidden bg-slate-900/90 border border-indigo-500/30 rounded-lg p-2.5 space-y-2 text-[11px]">
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <div class="flex justify-between mb-0.5 text-[10px]">
-                                                <span class="text-slate-300">Separar Ensamble</span>
-                                                <span id="lbl-ceiling-gap" class="font-mono text-indigo-400 font-bold">0 mm</span>
-                                            </div>
-                                            <input id="param-ceiling-gap" type="range" min="0" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full">
-                                        </div>
-                                        <div>
-                                            <div class="flex justify-between mb-0.5 text-[10px]">
-                                                <span class="text-slate-300">Posición Corte</span>
-                                                <span id="lbl-ceiling-offset" class="font-mono text-indigo-400 font-bold">0 mm</span>
-                                            </div>
-                                            <input id="param-ceiling-offset" type="range" min="-35" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full">
-                                        </div>
+                                    <div id="ceiling-split-info" class="p-2 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 leading-snug">
+                                        Calculando partes...
                                     </div>
-                                    <div class="grid grid-cols-2 gap-1.5 pt-1">
-                                        <button type="button" onclick="window.exportPlaquePartSTL('left')" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
-                                            <i data-lucide="download" class="w-3 h-3"></i>
-                                            <span>Parte 1: Izq (Macho)</span>
-                                        </button>
-                                        <button type="button" onclick="window.exportPlaquePartSTL('right')" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
-                                            <i data-lucide="download" class="w-3 h-3"></i>
-                                            <span>Parte 2: Der (Hembra)</span>
-                                        </button>
+
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input id="ceiling-bed-view-toggle" type="checkbox" onchange="window.triggerRebuild(); setTimeout(() => window.resetCameraView(), 450);" class="accent-indigo-500 rounded w-4 h-4">
+                                        <span class="text-[11px] text-slate-200">Ver cada parte sobre su propia cama</span>
+                                    </label>
+
+                                    <div>
+                                        <div class="flex justify-between mb-0.5 text-[10px]">
+                                            <span class="text-slate-300">Separar partes (vista de ensamble)</span>
+                                            <span id="lbl-ceiling-gap" class="font-mono text-indigo-400 font-bold">0 mm</span>
+                                        </div>
+                                        <input id="param-ceiling-gap" type="range" min="0" max="40" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="0 mm = ensamblado; más = vista explosionada para ver las uniones">
                                     </div>
+
+                                    <!-- Posición manual del corte: ya no se usa (los cortes son automáticos entre letras); se conserva por compatibilidad -->
+                                    <div class="hidden">
+                                        <span id="lbl-ceiling-offset"></span>
+                                        <input id="param-ceiling-offset" type="range" min="-35" max="35" step="1" value="0">
+                                    </div>
+
+                                    <div class="p-1.5 rounded bg-slate-800/60 border border-slate-700 text-[10px] text-slate-300 leading-snug">
+                                        🔗 <strong>Cola de milano oculta:</strong> por delante solo se ve una línea recta. Las colas van en la capa trasera, se imprimen sin soportes y se ensamblan
+                                        bajando cada parte sobre las lengüetas de la anterior (ajuste a presión 0.15 mm, sin pegamento).
+                                    </div>
+
+                                    <button type="button" onclick="window.exportSegmentParts3MF()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                        <span>Descargar cada parte (.3MF, una por cama)</span>
+                                    </button>
+
+                                    <button type="button" onclick="window.exportJointTest3MF()" class="w-full bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5" title="3 pares sin letras con holguras 0.10 / 0.15 / 0.20 mm para probar ajuste y resistencia">
+
+                                        <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+
+                                        <span>Imprimir prueba de ensamble (sin letras)</span>
+
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -788,7 +809,7 @@
                                     </div>
                                     <span id="lbl-plaque-width" class="font-mono text-emerald-400 font-bold">Auto</span>
                                 </div>
-                                <input id="param-plaque-width" type="range" min="100" max="480" step="5" value="260" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                                <input id="param-plaque-width" type="range" min="100" max="1200" step="5" value="260" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
                             </div>
 
                             <div class="grid grid-cols-2 gap-2.5">
@@ -810,48 +831,57 @@
                             </div>
                         </div>
 
-                        <!-- DIVISIÓN EN 2 PARTES PARA IMPRESIÓN GRANDE CON ENCASTRE DE ROMPECABEZAS -->
+                        <!-- DIVISIÓN AUTOMÁTICA POR PARTES (UNA POR CAMA DE 25 cm) CON COLA DE MILANO OCULTA -->
                         <div class="pt-2 border-t border-slate-800 space-y-2">
                             <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input id="plaque-split-toggle" type="checkbox" onchange="const c = document.getElementById('plaque-split-controls'); if (c) c.classList.toggle('hidden', !this.checked); window.triggerRebuild();" class="accent-emerald-500 rounded w-4 h-4">
                                 <span class="text-[11px] font-bold text-white flex items-center gap-1">
-                                    <i data-lucide="puzzle" class="w-3.5 h-3.5 text-emerald-400"></i>
-                                    Dividir en 2 Partes (Encastre Rompecabezas)
+                                    <i data-lucide="scissors" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    División automática por partes (camas de 25 cm)
                                 </span>
                             </label>
 
                             <div id="plaque-split-controls" class="hidden bg-slate-900/90 border border-emerald-500/30 rounded-lg p-2.5 space-y-2 text-[11px]">
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <div class="flex justify-between mb-0.5 text-[10px]">
-                                            <span class="text-slate-300">Separar Ensamble</span>
-                                            <span id="lbl-plaque-gap" class="font-mono text-emerald-400 font-bold">0 mm</span>
-                                        </div>
-                                        <input id="param-plaque-gap" type="range" min="0" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="0 mm = Ensamblado cerrado; >0 mm = Vista explosionada de ensamble">
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between mb-0.5 text-[10px]">
-                                            <span class="text-slate-300">Posición Corte</span>
-                                            <span id="lbl-plaque-offset" class="font-mono text-emerald-400 font-bold">0 mm</span>
-                                        </div>
-                                        <input id="param-plaque-offset" type="range" min="-35" max="35" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="Desplaza la costura entre letras para no cortar ningún glifo">
-                                    </div>
+                                <div id="plaque-split-info" class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-snug">
+                                    Calculando partes...
                                 </div>
 
-                                <div class="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-tight">
-                                    🧩 Conector tipo cola de milano / rompecabezas con 0.28 mm de holgura. Ensamble a presión firme sin necesidad de pegamento ni placas traseras.
+                                <label class="flex items-center gap-2 cursor-pointer select-none">
+                                    <input id="plaque-bed-view-toggle" type="checkbox" onchange="window.triggerRebuild(); setTimeout(() => window.resetCameraView(), 450);" class="accent-emerald-500 rounded w-4 h-4">
+                                    <span class="text-[11px] text-slate-200">Ver cada parte sobre su propia cama</span>
+                                </label>
+
+                                <div>
+                                    <div class="flex justify-between mb-0.5 text-[10px]">
+                                        <span class="text-slate-300">Separar partes (vista de ensamble)</span>
+                                        <span id="lbl-plaque-gap" class="font-mono text-emerald-400 font-bold">0 mm</span>
+                                    </div>
+                                    <input id="param-plaque-gap" type="range" min="0" max="40" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="0 mm = ensamblado; más = vista explosionada para ver las uniones">
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-1.5 pt-1">
-                                    <button type="button" onclick="window.exportPlaquePartSTL('left')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
-                                        <i data-lucide="download" class="w-3 h-3"></i>
-                                        <span>Parte 1: Izq (Macho)</span>
-                                    </button>
-                                    <button type="button" onclick="window.exportPlaquePartSTL('right')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1">
-                                        <i data-lucide="download" class="w-3 h-3"></i>
-                                        <span>Parte 2: Der (Hembra)</span>
-                                    </button>
+                                <!-- Posición manual del corte: ya no se usa (los cortes son automáticos entre letras); se conserva por compatibilidad -->
+                                <div class="hidden">
+                                    <span id="lbl-plaque-offset"></span>
+                                    <input id="param-plaque-offset" type="range" min="-35" max="35" step="1" value="0">
                                 </div>
+
+                                <div class="p-1.5 rounded bg-slate-800/60 border border-slate-700 text-[10px] text-slate-300 leading-snug">
+                                    🔗 <strong>Cola de milano oculta:</strong> por delante solo se ve una línea recta. Las colas van en la capa trasera, se imprimen sin soportes y se ensamblan
+                                    bajando cada parte sobre las lengüetas de la anterior (ajuste a presión 0.15 mm, sin pegamento).
+                                </div>
+
+                                <button type="button" onclick="window.exportSegmentParts3MF()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                    <span>Descargar cada parte (.3MF, una por cama)</span>
+                                </button>
+
+                                <button type="button" onclick="window.exportJointTest3MF()" class="w-full bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5" title="3 pares sin letras con holguras 0.10 / 0.15 / 0.20 mm para probar ajuste y resistencia">
+
+                                    <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+
+                                    <span>Imprimir prueba de ensamble (sin letras)</span>
+
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1436,6 +1466,75 @@
                             <i data-lucide="copy" class="w-4 h-4"></i>
                             <span>Copiar Resumen de Propuesta</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VITRINA PÚBLICA (NETLIFY) + BITÁCORA DE HORAS REALES -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+                                <span>Bitácora de Horas Reales Trabajadas</span>
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-1">Se publica en la vitrina para que jefatura vea el trabajo real detrás de cada letrero.</p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-[10px] text-slate-400 block">Total registrado</span>
+                            <span id="worklog-total" class="text-xl font-black text-amber-400">0 h</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-xs bg-slate-950/60 border border-slate-800 rounded-xl p-2.5">
+                        <label for="worklog-assigned" class="text-slate-300 flex-1">Horas que tengo asignadas actualmente por semana:</label>
+                        <input id="worklog-assigned" type="number" min="0" step="0.5" value="4" onchange="window.updateAssignedHours()"
+                            class="w-20 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1 text-white text-right outline-none">
+                        <span class="text-slate-400">h</span>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-2">
+                        <input id="worklog-date" type="date" class="col-span-12 sm:col-span-3 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+                        <input id="worklog-task" type="text" maxlength="120" placeholder="Actividad (ej: Modelado del exportador 3MF)" class="col-span-8 sm:col-span-6 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none">
+                        <input id="worklog-hours" type="number" min="0.25" step="0.25" placeholder="Horas" class="col-span-2 sm:col-span-1 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+                        <button type="button" onclick="window.addWorkLogEntry()" class="col-span-2 sm:col-span-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span class="hidden sm:inline">Agregar</span>
+                        </button>
+                    </div>
+
+                    <div class="max-h-64 overflow-y-auto">
+                        <table class="w-full text-xs">
+                            <tbody id="worklog-entries"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="globe" class="w-5 h-5 text-indigo-400"></i>
+                            <span>Vitrina para Jefatura (Netlify)</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Solo estos diseños se publican. Márcalos con <strong class="text-amber-400">★</strong> en "Mis Configuraciones Guardadas".
+                            Todo se guarda en <code class="text-amber-300">public/vitrina.json</code>; súbelo a GitHub y Netlify se actualiza solo.
+                        </p>
+                    </div>
+                    <div id="vitrina-designs-list" class="space-y-1.5 max-h-64 overflow-y-auto"></div>
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                        <span id="vitrina-count" class="text-[11px] text-slate-400">0 diseño(s) en la vitrina</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="window.publishCalculatorEstimate()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Publica en la vitrina el total de horas estimado por la calculadora de arriba">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                <span>Publicar estimación</span>
+                            </button>
+                            <a href="./visor.html?vitrina" target="_blank" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                                <span>Vista previa</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

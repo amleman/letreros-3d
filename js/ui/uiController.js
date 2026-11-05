@@ -1,11 +1,19 @@
 import { cadState } from '../config/state.js';
+import {
+    toggleVitrinaDesign,
+    removeVitrinaDesign,
+    addWorkLogEntry,
+    removeWorkLogEntry,
+    updateAssignedHours,
+    publishCalculatorEstimate
+} from './vitrinaPanel.js';
 import { palettes, loadUserPalettes, saveUserPalette, deleteUserPalette } from '../config/palettes.js';
 import { rebuildSignCAD, fitSignTo25cmBed } from '../cad/signGenerator.js';
 import { rebuildHangingSignCAD } from '../cad/hangingSignGenerator.js';
 import { refreshEnvironment, onWindowResize, resetCameraView, setSceneWorkspace } from '../scene/sceneManager.js';
-import { exportBambu3MF } from '../exporters/threeMfExporter.js';
+import { exportBambu3MF, exportSegmentParts3MF, exportJointTest3MF } from '../exporters/threeMfExporter.js';
 import { exportMultiOBJ } from '../exporters/objExporter.js';
-import { exportSTL, exportPlaquePartSTL, exportStandaloneMedallionsSTL } from '../exporters/stlExporter.js';
+import { exportSTL, exportStandaloneMedallionsSTL } from '../exporters/stlExporter.js';
 import { exportHanging3MF, exportHangingSTL } from '../exporters/hangingExporter.js';
 import { downloadBlob } from '../exporters/exportUtils.js';
 import { renderSignImageBlob, downloadPaperProofPNG, generateAllFontProofs, downloadAllFontProofs } from '../exporters/imageExporter.js';
@@ -553,7 +561,7 @@ export function renderHangingPlatesList() {
                 <label class="text-[10px] text-slate-400 block mb-1">Texto de la placa (Soporta Á, É, Í, Ó, Ú, Ñ)</label>
                 <input type="text" value="${plate.text}" maxlength="24"
                     oninput="window.updateHangingPlate('${plate.id}', 'text', this.value)"
-                    class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold tracking-wide uppercase outline-none">
+                    class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold tracking-wide outline-none">
             </div>
 
             <div class="grid grid-cols-2 gap-2">
@@ -871,7 +879,8 @@ export function exposeGlobalMethods() {
     window.exportBambu3MF = exportBambu3MF;
     window.exportMultiOBJ = exportMultiOBJ;
     window.exportSTL = exportSTL;
-    window.exportPlaquePartSTL = exportPlaquePartSTL;
+    window.exportSegmentParts3MF = exportSegmentParts3MF;
+    window.exportJointTest3MF = exportJointTest3MF;
     window.exportStandaloneMedallionsSTL = exportStandaloneMedallionsSTL;
 
     // Exportador de Plantilla de Imagen para Papel (Fondo Blanco)
@@ -896,6 +905,14 @@ export function exposeGlobalMethods() {
 
     // Persistencia y Presets de Usuario
     window.saveCurrentConfigWithPrompt = saveCurrentConfigWithPrompt;
+
+    // Vitrina pública para jefatura (Netlify) y bitácora de horas
+    window.toggleVitrinaDesign = toggleVitrinaDesign;
+    window.removeVitrinaDesign = removeVitrinaDesign;
+    window.addWorkLogEntry = addWorkLogEntry;
+    window.removeWorkLogEntry = removeWorkLogEntry;
+    window.updateAssignedHours = updateAssignedHours;
+    window.publishCalculatorEstimate = publishCalculatorEstimate;
     window.loadSavedConfig = loadSavedConfig;
     window.deleteSavedConfig = deleteSavedConfig;
     window.sharePresetToVisor = sharePresetToVisor;

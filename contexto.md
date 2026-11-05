@@ -146,7 +146,9 @@ Manejado por `js/cad/signGenerator.js`. El objeto 3D raíz es `printableRoot`, q
 Manejado por `js/cad/hangingSignGenerator.js`. El objeto 3D raíz es `hangingRoot` con tres subgrupos:
 1. `hangingBracketGroup`: Soporte de pared/cabecera de anaquel en **hierro forjado ornamental**, con montante vertical atornillable, volutas en 'S' de filigrana y punta de flecha clásica.
 2. `hangingChainsGroup`: Eslabones en 'C' desmontables e independientes impresos en 3D para colgar el letrero.
-3. `hangingPlatesGroup`: Array de placas modulares. El usuario puede pulsar **`[+ Añadir Módulo Inferior]`** para colgar placas en cascada hacia abajo conectadas por argollas inferiores. Cada placa puede tener diferente texto, color, tipografía y tamaño.
+3. `hangingPlatesGroup`: Array de placas modulares (mallas `Placa_<n>_Base`, `Placa_<n>_Marco`, `Placa_<n>_Letra_<k>`).
+
+Geometría paramétrica: la placa más ancha define el largo del brazo (holgura de 15 mm al montante) y la más angosta la separación común de argollas. Los eslabones en 'C' (`createChainLinkGeometry`, con abertura real) se calculan para quedar enganchados dentro de cada ojal (holgura 0.4 mm) y alternan 90°. En exhibición el conjunto cuelga del lateral de madera de un anaquel (`hangingMountGroup`, solo visual, nunca se exporta) y la cama de impresión se oculta. El .3MF exporta brazo, eslabones acostados en fila listos para imprimir y cada placa en 3 objetos de color. El usuario puede pulsar **`[+ Añadir Módulo Inferior]`** para colgar placas en cascada hacia abajo conectadas por argollas inferiores. Cada placa puede tener diferente texto, color, tipografía y tamaño.
 
 ---
 
@@ -160,6 +162,13 @@ Uno de los problemas técnicos resueltos en este proyecto es el manejo de tildes
 3. **Detección Rigurosa de Huecos (Holes):** Three.js `ShapeUtils.isClockwise()` puede fallar en fuentes como *Bebas Neue*, *Playfair* o *Montserrat* donde la orientación del devanado de los contornos interiores no es estrictamente CCW. `glyphConverter.js` realiza una prueba de punto en polígono (Ray-casting / Winding test) para asociar inequívocamente cada isla interna a su contorno envolvente principal (`shape.holes.push(holePath)`), garantizando mallas 100% sólidas sin caras invertidas ni artefactos negros.
 4. **Extrusión con Bisel (Bevel):** Se generan geometrías mediante `THREE.ExtrudeGeometry` configuradas con `bevelEnabled: true`, `bevelSegments: 3`, evitando la auto-intersección de aristas en esquinas cerradas.
 
+### Mayúsculas/minúsculas y números alineados:
+* El texto se usa tal como se escribe (sin `toUpperCase`), para poder poner "Laboratorio No. 2".
+* `glyphConverter.js` aplica la variante OpenType `lnum` cuando la fuente la trae (Playfair Display): sus números de estilo antiguo pasan a la altura de las mayúsculas. Baskerville, Cinzel y las demás ya traen números alineados.
+
+### Desplazamiento fino del texto (`param-text-offset-x/y`):
+Placa lo integra al centrar sus líneas; el resto de estilos lo aplica al final de `rebuildSignCAD` moviendo las mallas `Letra*` y `Subtitulo*` (en la cuña también sube por la rampa; en Bloques/Monolitos solo mueve las letras dentro de su bloque).
+
 ### Soporte Multilínea Inteligente:
 `signGenerator.js` implementa `splitTextIntoLines(rawText)`:
 * Si el texto tiene saltos de línea `\n` (introducidos al presionar Enter en el `textarea`), divide automáticamente las líneas.
@@ -168,12 +177,13 @@ Uno de los problemas técnicos resueltos en este proyecto es el manejo de tildes
 
 ---
 
-## 7. Ensamble de Rompecabezas Machihembrado (`geometryBuilders.js`)
+## 7. División Automática por Partes y Unión Oculta (`segmentation.js`)
 
-Para placas que exceden el tamaño máximo de cama de 250 mm (25 cm), el generador incluye la opción de **división en 2 mitades tipo puzzle**:
-* **Función izquierda:** `createLeftPuzzlePlaque(w, h, r, depth, gap, offset)`: Genera la mitad izquierda con una pestaña en forma de cuña de cola de milano trapezoidal (macho).
-* **Función derecha:** `createRightPuzzlePlaque(w, h, r, depth, gap, offset)`: Genera la mitad derecha con una cavidad complementaria (hembra) con tolerancia mecánica de `0.2 mm` para ajuste a presión perfecto en impresoras FDM.
-* **Ventaja:** Permite imprimir letreros de 350 mm a 500 mm en camas estándar de 250×250 mm y ensamblarlos directamente sin necesidad de pegamento ni placas de refuerzo traseras.
+Estilos Placa (`plaque`) y Colgante de Techo (`ceiling`). Toggle `plaque-split-toggle` / `ceiling-split-toggle` = "División automática por partes"; las funciones `createLeft/RightPuzzlePlaque` quedan sin uso.
+* **Planificación (`planCuts`)**: programación dinámica sobre posiciones candidatas cada 0.5 mm. Minimiza, en orden: número de partes (`ceil(ancho / maxSegmentWidth(250))`, +300 por parte extra), costo de costura (0 entre palabras, ~15 entre letras, 1000 si atraviesa un relieve) y desbalance de anchos. Obstáculos = cajas X de todas las mallas de `lettersGroup`/`accentsGroup` + argollas de techo. Con división activa, el subtítulo se genera letra por letra.
+* **Geometría (`buildSegmentedSlab`)**: cada parte es un contorno con esquinas redondeadas solo en los extremos exteriores. Unión de **cola de milano oculta en la capa trasera**: la parte izquierda lleva lengüetas planas (z 0→jointZ) y la derecha cajeados abiertos por abajo (holgura 0.15 mm); por delante la costura es recta. Se imprime sin soportes y se ensambla bajando cada parte sobre la anterior.
+* **Flujo en `rebuildSignCAD`**: el estilo deja `pendingSlab`; `applySlabSegmentation()` corta, crea `*_ParteK` y asigna `mesh.userData.part` a cada relieve; tras centrar, `applySegmentLayout()` aplica la separación explosionada o "una parte por cama" (`setBedLayout` en `environment.js`). `cadState.segmentation = { count, cuts, throughText, widths }`.
+* **Exportación**: `exportSegmentParts3MF()` descarga un .3MF por parte, centrado en su cama, con las 3 capas de color.
 
 ---
 
@@ -270,6 +280,18 @@ export default defineConfig({
 * **Ruta de acceso Diseñador CAD:** `https://tu-dominio.netlify.app/`
 * **Ruta de acceso Visor Ejecutivo:** `https://tu-dominio.netlify.app/visor.html`
 * **Ruta con diseño compartido:** `https://tu-dominio.netlify.app/visor.html#share=<base64>`
+
+---
+
+### Vitrina pública para jefatura (lo que realmente se publica en Netlify):
+* `netlify.toml` ejecuta `npm run build:vitrina` (`vite build --mode vitrina`): **solo** se compila `visor.html`; el diseñador CAD nunca se publica (y `/index.html` redirige al visor).
+* El visor en modo vitrina (`IS_VITRINA_BUILD`, o `visor.html?vitrina` en local como vista previa) muestra **solo** los diseños de `public/vitrina.json`, oculta filtros, enlace al CAD y descarga .3MF.
+* `public/vitrina.json` = `{ designs: [...], work: { assignedHoursPerWeek, estimatedProjectHours, entries: [{date, task, hours}] } }`.
+* En local, `vite.config.js` expone `GET/PUT /api/vitrina` (solo `npm run dev`) para escribir ese archivo. El diseñador lo edita con la ★ de "Mis Configuraciones Guardadas" (`js/ui/vitrinaPanel.js`) y la "Bitácora de Horas" en la vista *Propuesta Horas*. El visor muestra el botón **Horas de Trabajo** con el modal de horas invertidas vs. asignadas.
+* Para publicar cambios: commit + push de `public/vitrina.json`; Netlify recompila solo.
+
+### Exportación 3MF manifold (`threeMfWriter.js`):
+* Los dos exportadores 3MF usan `build3MFBlob()`: suelda vértices (1e-4 mm), aplica `matrixWorld` relativo a la raíz y elimina triángulos degenerados/duplicados. Sin esto, la geometría no indexada de Three.js salía con todas las aristas abiertas y Bambu Studio pedía reparar.
 
 ---
 

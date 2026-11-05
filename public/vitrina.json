@@ -1,0 +1,82 @@
+{
+  "updatedAt": "2026-11-05T20:00:00.000Z",
+  "designs": [],
+  "work": {
+    "assignedHoursPerWeek": 4,
+    "estimatedProjectHours": 57,
+    "entries": [
+      {
+        "id": "w_dev_01",
+        "date": "2026-10-30",
+        "task": "Estudio de señalética y prototipo inicial: requisitos, estilos y paletas institucionales",
+        "hours": 6
+      },
+      {
+        "id": "w_dev_02",
+        "date": "2026-11-01",
+        "task": "Motor CAD 3D: 7 estilos paramétricos, ensamble tipo rompecabezas y escudos USAC / Biblioteca en relieve",
+        "hours": 12
+      },
+      {
+        "id": "w_dev_03",
+        "date": "2026-11-02",
+        "task": "Tipografía vectorial UTF-8: tildes, Ñ, huecos de letras y centrado multilínea",
+        "hours": 7
+      },
+      {
+        "id": "w_dev_04",
+        "date": "2026-11-03",
+        "task": "Exportadores de fabricación (.3MF multicolor, .STL, plantilla en papel 1:1) y pruebas",
+        "hours": 7
+      },
+      {
+        "id": "w_dev_05",
+        "date": "2026-11-03",
+        "task": "Visor para jefatura, enlaces compartibles, configuración Vite y repositorio GitHub",
+        "hours": 6
+      },
+      {
+        "id": "w_dev_06",
+        "date": "2026-11-05",
+        "task": "Corrección del .3MF para Bambu Studio, vitrina para Netlify y bitácora de horas",
+        "hours": 2.5
+      },
+      {
+        "id": "w_dev_07",
+        "date": "2026-11-05",
+        "task": "Rediseño del rótulo colgante de anaquel, desplazamiento de texto y visor en tema claro",
+        "hours": 2.5
+      },
+      {
+        "id": "w_dev_08",
+        "date": "2026-11-05",
+        "task": "Simplificación del visor para jefatura y paleta de colores",
+        "hours": 1
+      },
+      {
+        "id": "w_dev_09",
+        "date": "2026-11-05",
+        "task": "División automática por partes (N camas de 25 cm), cortes entre letras y unión de cola de milano oculta sin pegamento",
+        "hours": 2
+      },
+      {
+        "id": "w_dev_10",
+        "date": "2026-11-05",
+        "task": "Pieza de prueba de ensamble (3 holguras) para validar resistencia y ajuste de la unión",
+        "hours": 1
+      },
+      {
+        "id": "w_dev_11",
+        "date": "2026-11-05",
+        "task": "Ícono del proyecto, autoría en el visor y estado vacío de la vitrina",
+        "hours": 0.5
+      },
+      {
+        "id": "w_dev_12",
+        "date": "2026-11-05",
+        "task": "Números alineados en Playfair Display y soporte de mayúsculas/minúsculas en los letreros",
+        "hours": 1
+      }
+    ]
+  }
+}

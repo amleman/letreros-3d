@@ -10,6 +10,8 @@ export let activeContainer = null;
 export let printableRoot, baseGroup, accentsGroup, lettersGroup;
 // Grupos para el espacio dedicado de rótulos colgantes modulares de anaquel
 export let hangingRoot, hangingBracketGroup, hangingChainsGroup, hangingPlatesGroup;
+// Solo exhibición (lateral de anaquel donde se atornilla el brazo): nunca se exporta
+export let hangingMountGroup;
 
 /**
  * Inicializa el visor 3D Three.js
@@ -88,6 +90,11 @@ export function initScene(containerId = 'three-container') {
     hangingRoot.add(hangingPlatesGroup);
     scene.add(hangingRoot);
 
+    hangingMountGroup = new THREE.Group();
+    hangingMountGroup.name = "Exhibicion_Lateral_Anaquel";
+    hangingMountGroup.visible = false;
+    scene.add(hangingMountGroup);
+
     // 7. Iluminación y Entorno (Cama 25x25 cm + Estante)
     setupLighting(scene);
     buildEnvironment(scene);
@@ -111,19 +118,13 @@ export function initScene(containerId = 'three-container') {
  */
 export function setSceneWorkspace(workspace) {
     cadState.activeWorkspace = workspace;
-    if (workspace === 'hanging') {
-        if (printableRoot) printableRoot.visible = false;
-        if (hangingRoot) hangingRoot.visible = true;
-        camera.position.set(0, -600, 150);
-        controls.target.set(0, 0, 140);
-        controls.update();
-    } else {
-        if (printableRoot) printableRoot.visible = true;
-        if (hangingRoot) hangingRoot.visible = false;
-        camera.position.set(0, -320, 270);
-        controls.target.set(0, 0, 12);
-        controls.update();
-    }
+    const isHanging = workspace === 'hanging';
+    if (printableRoot) printableRoot.visible = !isHanging;
+    if (hangingRoot) hangingRoot.visible = isHanging;
+    if (hangingMountGroup) hangingMountGroup.visible = isHanging;
+    // El rótulo colgante se exhibe atornillado a un anaquel: la cama de impresión no aplica ahí
+    if (scene) buildEnvironment(scene);
+    resetCameraView();
 }
 
 /**
@@ -144,8 +145,10 @@ export function onWindowResize() {
 export function resetCameraView() {
     if (!camera || !controls) return;
     if (cadState.activeWorkspace === 'hanging') {
-        camera.position.set(0, -600, 150);
-        controls.target.set(0, 0, 140);
+        const { center, size } = getActiveModelBounds();
+        const dist = Math.max(480, Math.max(size.x, size.z) * 2.3);
+        camera.position.set(center.x + dist * 0.28, center.y - dist, center.z + dist * 0.12);
+        controls.target.copy(center);
     } else {
         const box = new THREE.Box3().setFromObject(printableRoot);
         const size = new THREE.Vector3();
@@ -156,6 +159,23 @@ export function resetCameraView() {
         controls.target.set(0, 0, 10);
     }
     controls.update();
+}
+
+/**
+ * Centro y tamaño del modelo activo (para encuadres de cámara)
+ */
+export function getActiveModelBounds() {
+    const root = cadState.activeWorkspace === 'hanging' ? hangingRoot : printableRoot;
+    const center = new THREE.Vector3(0, 0, 12);
+    const size = new THREE.Vector3(220, 220, 40);
+    if (root) {
+        const box = new THREE.Box3().setFromObject(root);
+        if (!box.isEmpty()) {
+            box.getCenter(center);
+            box.getSize(size);
+        }
+    }
+    return { center, size };
 }
 
 /**

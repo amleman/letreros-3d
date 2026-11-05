@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BiblioSign 3D • Catálogo Ejecutivo de Señalética Institucional</title>
-    
+    <title>Señalética 3D • Biblioteca Central USAC</title>
+    <!-- Ícono del proyecto (pestaña del navegador) -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+
     <!-- Tailwind CSS vía CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700&family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&family=Montserrat:wght@700;800&family=Oswald:wght@700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-    
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- OpenType.js para soporte completo de tildes UTF-8 (Á, É, Í, Ó, Ú, Ñ) -->
     <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
-    
+
     <!-- JSZip para empaquetar archivos nativos .3MF Multi-Objeto -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
@@ -34,142 +36,102 @@
 
     <!-- Estilos locales del proyecto -->
     <link rel="stylesheet" href="./css/styles.css">
-</head>
-<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-amber-500 selection:text-slate-950">
 
-    <!-- Notificación Toast Flotante -->
-    <div id="visor-toast" class="fixed bottom-5 right-5 z-50 pointer-events-none opacity-0 translate-y-3 transition-all duration-300 bg-slate-900/95 border border-amber-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 max-w-md">
-        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-        </div>
-        <div>
-            <div id="visor-toast-title" class="text-xs font-bold text-amber-400">Información</div>
-            <div id="visor-toast-desc" class="text-[11px] text-slate-300">Detalles de la acción realizada</div>
-        </div>
+    <!-- Tema claro del visor para jefatura (sobrescribe el tema oscuro del diseñador CAD) -->
+    <style>
+        body.visor-light {
+            background: #f5f3ee;
+            color: #1f2937;
+        }
+        body.visor-light ::-webkit-scrollbar-track { background: transparent; }
+        body.visor-light ::-webkit-scrollbar-thumb { background: #d6d0c4; }
+        body.visor-light ::-webkit-scrollbar-thumb:hover { background: #b8b0a1; }
+        .visor-stage {
+            background: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #eef1f5 55%, #dfe4ea 100%);
+        }
+    </style>
+</head>
+<body class="visor-light min-h-screen flex flex-col overflow-x-hidden selection:bg-amber-200 selection:text-slate-900">
+
+    <!-- Aviso de vista previa local (solo visible al abrir visor.html?vitrina desde el diseñador) -->
+    <div id="vitrina-preview-banner" class="hidden bg-indigo-600 text-white text-xs font-medium px-4 py-1.5 flex items-center justify-center gap-2">
+        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+        <span>Vista previa local: así verán tus jefes la página publicada en Netlify (solo diseños marcados con ★).</span>
     </div>
 
-    <!-- Barra Superior Ejecutiva -->
-    <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                <i data-lucide="library" class="w-5 h-5 text-white"></i>
-            </div>
-            <div>
+    <!-- Barra Superior -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-stone-200 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
+        <div class="flex items-center gap-3 min-w-0">
+            <img src="./favicon.svg" alt="Señalética 3D" class="w-11 h-11 rounded-2xl shadow-sm shrink-0">
+            <div class="min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                    <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">Catálogo Ejecutivo de Señalética Institucional</h1>
-                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center gap-1">
-                        <i data-lucide="shield-check" class="w-3 h-3"></i>
-                        <span>Modo Presentación (Solo Lectura)</span>
+                    <h1 class="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">Nueva Señalética 3D · Biblioteca Central</h1>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">
+                        Propuesta para revisión
                     </span>
                 </div>
-                <p class="text-xs text-slate-400">Revisión 3D, fichas técnicas y aprobación para Biblioteca Central</p>
+                <p id="visor-subtitle" class="text-xs text-slate-500">Modelos 3D interactivos, medidas reales y fichas técnicas de cada letrero</p>
             </div>
         </div>
 
-        <!-- Botones de Acción de Cabecera -->
-        <div class="flex items-center gap-2">
-            <button onclick="window.copyActiveShareUrl()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition" title="Copiar enlace directo de este modelo para enviar por correo o chat a jefatura">
-                <i data-lucide="share-2" class="w-4 h-4"></i>
-                <span class="hidden sm:inline">Compartir este Modelo</span>
+        <div class="flex items-center gap-3">
+            <!-- Autor de la propuesta -->
+            <div class="flex items-center gap-2.5 pr-3 border-r border-stone-200">
+                <span class="w-9 h-9 rounded-full bg-slate-900 text-amber-400 text-xs font-black flex items-center justify-center shrink-0" aria-hidden="true">AA</span>
+                <div class="leading-tight">
+                    <div class="text-sm font-bold text-slate-900">Anthony Alemán</div>
+                    <div class="text-[11px] text-slate-500">Encargado de Laboratorio Realidad Virtual</div>
+                </div>
+            </div>
+
+            <button id="btn-work-hours" onclick="window.toggleWorkHoursModal(true)" class="hidden flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-sm transition" title="Ver las horas de trabajo invertidas en el proyecto">
+                <i data-lucide="clock" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Horas de trabajo</span>
+                <span id="work-btn-total" class="font-black">0 h</span>
             </button>
 
-            <a href="./index.html" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500/50 transition" title="Abrir la herramienta de edición y modelado CAD">
-                <i data-lucide="sliders" class="w-4 h-4"></i>
-                <span class="hidden sm:inline">Diseñador CAD</span>
-            </a>
         </div>
     </header>
 
-    <!-- CUERPO PRINCIPAL: CATÁLOGO LATERAL (3 cols) + VISOR 3D (6 cols) + FICHA TÉCNICA (3 cols) -->
-    <main class="flex-1 flex flex-col lg:grid lg:grid-cols-12 min-h-0 relative">
-        
-        <!-- ========================================================================= -->
-        <!-- COLUMNA 1: CATÁLOGO DE PROPUESTAS DISPONIBLES                           -->
-        <!-- ========================================================================= -->
-        <aside class="lg:col-span-3 xl:col-span-3 bg-slate-900 border-r border-slate-800 p-3.5 flex flex-col max-h-[calc(100vh-61px)] space-y-3">
-            
-            <div class="flex items-center justify-between pb-1 border-b border-slate-800">
-                <div class="flex items-center gap-2">
-                    <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                        <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-                    </span>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-white">Catálogo de Modelos</h2>
-                </div>
-                <span class="text-[10px] text-slate-400 font-medium">Bibliotecas USAC</span>
-            </div>
+    <!-- CUERPO PRINCIPAL: CATÁLOGO (3) + VISOR 3D (6) + FICHA TÉCNICA (3) -->
+    <main class="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-4 p-4 lg:p-5 min-h-0">
 
-            <!-- Filtros Rápidos por Categoría -->
-            <div class="flex flex-wrap gap-1 p-1 bg-slate-950/70 border border-slate-800 rounded-xl text-[11px]">
-                <button id="filter-tab-all" onclick="window.setFilter('all')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-slate-950 shadow transition">
-                    Todos
-                </button>
-                <button id="filter-tab-placas" onclick="window.setFilter('placas')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition">
-                    Placas
-                </button>
-                <button id="filter-tab-anaqueles" onclick="window.setFilter('anaqueles')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition">
-                    Anaqueles
-                </button>
-                <button id="filter-tab-colgantes" onclick="window.setFilter('colgantes')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition">
-                    Colgantes
-                </button>
-                <button id="filter-tab-guardadas" onclick="window.setFilter('guardadas')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition">
-                    Guardadas
-                </button>
-            </div>
-
-            <!-- Lista de Tarjetas del Catálogo -->
-            <div id="catalog-cards-container" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+        <!-- COLUMNA 1: LISTA COMPACTA DE MIS PROPUESTAS -->
+        <aside class="lg:col-span-2 bg-white border border-stone-200 rounded-3xl p-3 flex flex-col lg:max-h-[calc(100vh-110px)] space-y-2 shadow-sm">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-2 pt-1 flex items-center justify-between">
+                <span>Propuestas</span>
+                <span id="catalog-count" class="text-[10px] font-semibold text-slate-500 bg-stone-100 px-1.5 py-0.5 rounded-md">0</span>
+            </h2>
+            <div id="catalog-cards-container" class="flex-1 overflow-y-auto space-y-1 custom-scrollbar">
                 <!-- Se inyecta dinámicamente por visorMain.js -->
-            </div>
-
-            <div class="text-[10px] text-slate-500 p-2.5 bg-slate-950/40 rounded-xl border border-slate-800/80 flex items-center gap-2">
-                <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
-                <span>Haz clic en cualquier tarjeta para cargar el modelo en el visor 3D central.</span>
             </div>
         </aside>
 
-        <!-- ========================================================================= -->
-        <!-- COLUMNA 2: VISOR 3D CENTRAL CON CONTROLES DE CÁMARA FLOTANTES            -->
-        <!-- ========================================================================= -->
-        <section class="lg:col-span-6 xl:col-span-6 bg-slate-950 flex flex-col relative h-[50vh] lg:h-auto min-h-[420px] overflow-hidden">
-            
+        <!-- COLUMNA 2: VISOR 3D CENTRAL -->
+        <section class="lg:col-span-7 visor-stage border border-stone-200 rounded-3xl flex flex-col relative h-[60vh] lg:h-auto min-h-[440px] overflow-hidden shadow-sm">
+
             <!-- Barra Flotante Superior: Ángulos de Cámara & Modos -->
-            <div class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center justify-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1.5 rounded-2xl shadow-2xl max-w-[94%]">
-                
-                <!-- Preset Frontal -->
-                <button onclick="window.setCameraPreset('frontal')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Vista frontal 90° perfecta para leer y juzgar alineación">
-                    <i data-lucide="maximize" class="w-3.5 h-3.5 text-amber-400"></i>
+            <div class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-nowrap whitespace-nowrap items-center justify-center gap-1 bg-white/90 backdrop-blur-md border border-stone-200 p-1 rounded-2xl shadow-md max-w-[94%]">
+                <button onclick="window.setCameraPreset('frontal')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-stone-100 transition" title="Vista frontal para leer y juzgar alineación">
+                    <i data-lucide="maximize" class="w-3.5 h-3.5 text-amber-600"></i>
                     <span class="hidden sm:inline">Frontal</span>
                 </button>
-
-                <!-- Preset Isométrico 3D -->
-                <button onclick="window.setCameraPreset('isometric')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Perspectiva 3D inclinada para apreciar relieve, biseles y profundidad">
-                    <i data-lucide="box" class="w-3.5 h-3.5 text-sky-400"></i>
+                <button onclick="window.setCameraPreset('isometric')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-stone-100 transition" title="Perspectiva 3D para apreciar relieve y profundidad">
+                    <i data-lucide="box" class="w-3.5 h-3.5 text-sky-600"></i>
                     <span class="hidden sm:inline">Perspectiva</span>
                 </button>
-
-                <!-- Preset Cenital / Superior -->
-                <button onclick="window.setCameraPreset('top')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Vista superior plana (Cenital)">
-                    <i data-lucide="arrow-up" class="w-3.5 h-3.5 text-emerald-400"></i>
-                    <span class="hidden sm:inline">Cenital</span>
+                <button onclick="window.setCameraPreset('top')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-stone-100 transition" title="Vista superior">
+                    <i data-lucide="arrow-down-to-line" class="w-3.5 h-3.5 text-emerald-600"></i>
+                    <span class="hidden sm:inline">Superior</span>
                 </button>
 
-                <div class="w-px h-5 bg-slate-700/80 mx-0.5"></div>
+                <div class="w-px h-5 bg-stone-200 mx-0.5"></div>
 
-                <!-- Botón Turntable 360° -->
-                <button id="btn-turntable" onclick="window.toggleTurntable()" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition" title="Activar/Desactivar giro continuo 360° para exhibición">
+                <button id="btn-turntable" onclick="window.toggleTurntable()" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-stone-100 transition" title="Giro continuo 360°">
                     <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
                     <span class="hidden sm:inline">Giro 360°</span>
                 </button>
-
-                <!-- Alternar Entorno: Estante Roble vs Cama 25 cm -->
-                <button id="btn-env-toggle" onclick="window.toggleEnvironment()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-transparent transition" title="Alternar entre ver sobre estante de biblioteca o sobre la cama de impresión 3D de 25 cm">
-                    <i data-lucide="columns" class="w-3.5 h-3.5 text-amber-400"></i>
-                    <span id="lbl-env-toggle" class="hidden sm:inline">Estante</span>
-                </button>
-
-                <!-- Re-centrar Cámara -->
-                <button onclick="window.recenterCamera()" class="p-1.5 rounded-xl text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition" title="Restablecer encuadre óptimo">
+                <button onclick="window.recenterCamera()" class="p-1.5 rounded-xl text-slate-600 hover:bg-stone-100 transition" title="Restablecer encuadre">
                     <i data-lucide="focus" class="w-3.5 h-3.5"></i>
                 </button>
             </div>
@@ -180,121 +142,122 @@
             </div>
 
             <!-- Badge Flotante Inferior: Dimensiones Reales 1:1 -->
-            <div id="visor-dims-badge" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-3 text-xs pointer-events-none">
-                <div class="flex items-center gap-1.5 text-amber-400 font-bold">
-                    <i data-lucide="ruler" class="w-3.5 h-3.5"></i>
-                    <span>Dimensiones:</span>
-                </div>
-                <span class="font-mono text-white font-semibold">Calculando...</span>
+            <div id="visor-dims-badge" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-white/90 backdrop-blur-md border border-stone-200 px-4 py-2 rounded-2xl shadow-md flex items-center gap-3 text-xs pointer-events-none whitespace-nowrap">
+                <span class="text-slate-500">Calculando medidas...</span>
             </div>
 
-            <!-- Guía de Interacción en esquina inferior derecha -->
-            <div class="absolute bottom-3 right-3 z-10 hidden sm:flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-950/80 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 pointer-events-none">
-                <i data-lucide="mouse-pointer" class="w-3 h-3 text-slate-400"></i>
-                <span>Gira con ratón / dedo • Rueda para zoom</span>
+            <div class="absolute bottom-4 right-4 z-10 hidden xl:flex items-center gap-1.5 text-[10px] text-slate-500 bg-white/80 backdrop-blur px-2.5 py-1 rounded-lg border border-stone-200 pointer-events-none">
+                <i data-lucide="mouse-pointer" class="w-3 h-3"></i>
+                <span>Arrastra para girar • Rueda para zoom</span>
             </div>
         </section>
 
-        <!-- ========================================================================= -->
-        <!-- COLUMNA 3: FICHA TÉCNICA EJECUTIVA & ACCIONES DE APROBACIÓN              -->
-        <!-- ========================================================================= -->
-        <aside class="lg:col-span-3 xl:col-span-3 bg-slate-900 border-l border-slate-800 p-4 flex flex-col justify-between max-h-[calc(100vh-61px)] overflow-y-auto space-y-4">
-            
-            <div class="space-y-4">
-                <!-- Encabezado de la Ficha Técnica -->
-                <div class="border-b border-slate-800 pb-3">
-                    <div class="flex items-center justify-between gap-2 mb-1.5">
-                        <span id="spec-category" class="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                            Placa Wayfinding
-                        </span>
-                        <span id="spec-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                            Recomendado USAC
-                        </span>
-                    </div>
-                    <h2 id="spec-title" class="text-base font-extrabold text-white leading-tight">
-                        Laboratorio Central
-                    </h2>
-                </div>
+        <!-- COLUMNA 3: FICHA TÉCNICA -->
+        <aside class="lg:col-span-3 bg-white border border-stone-200 rounded-3xl p-5 flex flex-col justify-between lg:max-h-[calc(100vh-110px)] overflow-y-auto space-y-5 shadow-sm">
 
-                <!-- Descripción y Justificación Institucional -->
+            <div class="space-y-5">
                 <div class="space-y-1.5">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <i data-lucide="file-text" class="w-3 h-3 text-amber-400"></i>
-                        <span>Propósito y Justificación</span>
-                    </h3>
-                    <p id="spec-desc" class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                        Placa institucional con escudos 3D en relieve de la USAC y Biblioteca Central. Diseñada para entradas de laboratorios y salas técnicas.
+                    <div class="flex items-center justify-between gap-2">
+                        <span id="spec-category" class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Placa Wayfinding</span>
+                        <span id="spec-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">Recomendado</span>
+                    </div>
+                    <h2 id="spec-title" class="text-xl font-extrabold text-slate-900 leading-tight">Laboratorio Central</h2>
+                    <p id="spec-desc" class="text-sm text-slate-600 leading-relaxed">
+                        Rótulo 3D de alta legibilidad diseñado para la señalización de espacios bibliotecarios.
                     </p>
                 </div>
 
-                <!-- Especificaciones Técnicas de Fabricación -->
-                <div class="space-y-2">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <i data-lucide="settings" class="w-3 h-3 text-amber-400"></i>
-                        <span>Especificaciones Técnicas</span>
-                    </h3>
-
-                    <div class="space-y-1.5 text-xs">
-                        <!-- Medidas Reales -->
-                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                            <span class="text-[10px] text-slate-400 block mb-0.5">Medidas Físicas (Escala 1:1):</span>
-                            <span id="spec-dimensions" class="font-bold text-white font-mono">-- mm</span>
+                <div class="grid grid-cols-1 gap-2 text-xs">
+                    <div class="flex items-start gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+                        <i data-lucide="ruler" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Medidas reales</div>
+                            <div id="spec-dimensions" class="font-semibold text-slate-900">-- mm</div>
                         </div>
-
-                        <!-- Montaje / Fijación -->
-                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                            <span class="text-[10px] text-slate-400 block mb-0.5">Tipo de Montaje e Instalación:</span>
-                            <span id="spec-mounting" class="font-semibold text-amber-300">Fijación frontal en pared o canto</span>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+                        <i data-lucide="hammer" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Instalación</div>
+                            <div id="spec-mounting" class="font-semibold text-slate-900">Fijación frontal</div>
                         </div>
-
-                        <!-- Material Recomendado -->
-                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                            <span class="text-[10px] text-slate-400 block mb-0.5">Material de Fabricación 3D Sugerido:</span>
-                            <span id="spec-material" class="font-medium text-slate-200">PLA / PETG Resistente a rayos UV</span>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+                        <i data-lucide="layers" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Material</div>
+                            <div id="spec-material" class="font-semibold text-slate-900">PLA / PETG</div>
                         </div>
-
-                        <!-- Tipografía -->
-                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                            <span class="text-[10px] text-slate-400 block mb-0.5">Tipografía Empleada:</span>
-                            <span id="spec-font" class="font-medium text-white">Bebas Neue (Institucional Condensada)</span>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+                        <i data-lucide="type" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                        <div class="min-w-0">
+                            <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Tipografía</div>
+                            <div id="spec-font" class="font-semibold text-slate-900">Arial</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Paleta de Color Institucional -->
-                <div class="space-y-1.5">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <i data-lucide="palette" class="w-3 h-3 text-amber-400"></i>
-                        <span>Paleta de Color Institucional</span>
-                    </h3>
-                    <div id="spec-color-swatches" class="grid grid-cols-1 gap-1.5">
+                <div class="space-y-2">
+                    <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Colores de impresión</h3>
+                    <div id="spec-color-swatches" class="bg-white border border-stone-200 rounded-2xl px-3 pt-3 pb-1">
                         <!-- Swatches inyectados por visorMain.js -->
                     </div>
                 </div>
             </div>
 
-            <!-- Botones de Acción para Jefatura -->
-            <div class="space-y-2 pt-3 border-t border-slate-800">
-                <!-- Imprimir Plantilla en Papel 1:1 -->
-                <button onclick="window.downloadProposalProof()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 group">
-                    <i data-lucide="printer" class="w-4 h-4 text-indigo-200 group-hover:scale-110 transition"></i>
-                    <span>Descargar Plantilla para Papel 1:1 (PNG)</span>
-                </button>
-
-                <!-- Copiar Enlace Directo -->
-                <button onclick="window.copyActiveShareUrl()" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500/50 font-bold text-xs py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2">
-                    <i data-lucide="link-2" class="w-4 h-4"></i>
-                    <span>Copiar Enlace Directo para mi Jefe</span>
-                </button>
-
-                <!-- Descargar .3MF Multicolor (Para Producción 3D) -->
-                <button onclick="window.downloadProposal3MF()" class="w-full bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
-                    <i data-lucide="box" class="w-4 h-4"></i>
-                    <span>Descargar .3MF Multicolor (Bambu)</span>
-                </button>
-            </div>
         </aside>
     </main>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL: TRABAJO DETRÁS DE LOS LETREROS (Bitácora de horas de vitrina.json)  -->
+    <!-- ========================================================================= -->
+    <div id="work-hours-modal" class="hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm items-center justify-center p-4" onclick="if (event.target === this) window.toggleWorkHoursModal(false)">
+        <div class="bg-white border border-stone-200 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col text-slate-800">
+            <div class="flex items-start justify-between gap-3 p-6 border-b border-stone-200">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Más allá de "diseño, imprimo, listo"</span>
+                    <h2 class="text-xl font-extrabold text-slate-900">El trabajo detrás de cada letrero</h2>
+                    <p class="text-xs text-slate-500 mt-1 font-medium">Responsable: <span class="text-slate-800 font-semibold">Anthony Alemán</span> · Encargado de Laboratorio Realidad Virtual</p>
+                    <p class="text-sm text-slate-500 mt-1">Cada propuesta requiere desarrollar la herramienta CAD, modelar, preparar los archivos multicolor, imprimir, post-procesar e instalar.</p>
+                </div>
+                <button onclick="window.toggleWorkHoursModal(false)" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-stone-100 transition shrink-0" title="Cerrar">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5 overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                        <div class="text-[11px] text-amber-800 font-semibold">Ya invertidas creando la herramienta</div>
+                        <div id="work-logged" class="text-3xl font-black text-amber-600">0 h</div>
+                        <div class="text-[11px] text-slate-500 mt-1">Equivale a <span id="work-weeks-logged" class="font-bold text-slate-800">—</span> de mi horario actual</div>
+                    </div>
+                    <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4">
+                        <div class="text-[11px] text-slate-500 font-semibold">Horas asignadas por semana</div>
+                        <div id="work-assigned" class="text-3xl font-black text-slate-900">—</div>
+                    </div>
+                    <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4">
+                        <div class="text-[11px] text-slate-500 font-semibold">Estimado para producir los letreros</div>
+                        <div id="work-estimated" class="text-3xl font-black text-slate-900">—</div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm text-slate-700 leading-relaxed">
+                    Con las horas asignadas actualmente, solo producir e instalar los letreros tomaría
+                    <strong id="work-weeks-remaining" class="text-rose-700">—</strong>.
+                    Para cumplir con la renovación de los laboratorios en un plazo razonable se requiere una ampliación de horas.
+                </div>
+
+                <div>
+                    <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Registro detallado de actividades</h3>
+                    <table class="w-full text-xs">
+                        <tbody id="work-entries"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ========================================================================= -->
     <!-- ELEMENTOS DOM OCULTOS: REQUERIDOS POR EL MOTOR CAD (signGenerator)         -->

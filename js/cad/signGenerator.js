@@ -23,7 +23,8 @@ import {
     createStandaloneMedallionAssembly
 } from './logoBuilder.js';
 import { printableRoot, baseGroup, accentsGroup, lettersGroup } from '../scene/sceneManager.js';
-import { updateBedAlertStatus } from '../scene/environment.js';
+import { updateBedAlertStatus, setBedLayout } from '../scene/environment.js';
+import { planCuts, buildSegmentedSlab, maxSegmentWidth, JOINT } from './segmentation.js';
 import { scheduleAutoSave } from '../config/persistence.js';
 
 /**
@@ -139,8 +140,9 @@ export async function rebuildSignCAD() {
     const otFont = await ensureFontLoaded(fontKey);
     if (!otFont || myBuildId !== rebuildGenerationId) return;
 
-    const rawText = (document.getElementById('sign-text')?.value || 'INVESTIGACIÓN').toUpperCase().trim() || 'A';
-    const subText = (document.getElementById('sign-subtext')?.value || '').toUpperCase().trim();
+    // Se respeta lo que escriba el usuario: mayúsculas y minúsculas ("Laboratorio No. 2", no "NO.2")
+    const rawText = (document.getElementById('sign-text')?.value || 'INVESTIGACIÓN').trim() || 'A';
+    const subText = (document.getElementById('sign-subtext')?.value || '').trim();
     const showSub = document.getElementById('show-subtext')?.checked ?? false;
     const stagger = document.getElementById('stagger-toggle')?.checked ?? true;
     const includeRail = document.getElementById('stand-rail-toggle')?.checked ?? true;
@@ -216,6 +218,10 @@ export async function rebuildSignCAD() {
     clearGroupGeometries(baseGroup);
     clearGroupGeometries(accentsGroup);
     clearGroupGeometries(lettersGroup);
+
+    // División automática por partes: la placa se construye al final, cuando ya se conocen todos los relieves
+    cadState.segmentation = null;
+    let pendingSlab = null;
 
     const matSubText = new THREE.MeshStandardMaterial({
         color: new THREE.Color(subHex),
@@ -652,10 +658,7 @@ export async function rebuildSignCAD() {
                     return;
                 }
                 const centerX = lineCursorX + item.width / 2;
-                const onLeft = centerX < cutWorldX;
-                const shiftX = isSplit ? (onLeft ? -splitGap / 2 : splitGap / 2) : 0;
-
-                item.geometry.translate(centerX + shiftX, lineY, baseDepth + explodeZ);
+                item.geometry.translate(centerX, lineY, baseDepth + explodeZ);
 
                 const lMat = cadState.useMultiColor
                     ? new THREE.MeshStandardMaterial({
@@ -666,7 +669,7 @@ export async function rebuildSignCAD() {
                     : matFace;
 
                 const lMesh = new THREE.Mesh(item.geometry, lMat);
-                lMesh.name = `Letra_L${lineIdx + 1}_${globalCharIdx + 1}_${item.char}_${onLeft ? 'Parte1' : 'Parte2'}`;
+                lMesh.name = `Letra_L${lineIdx + 1}_${globalCharIdx + 1}_${item.char}`;
                 lMesh.castShadow = true;
                 lettersGroup.add(lMesh);
 
@@ -694,27 +697,22 @@ export async function rebuildSignCAD() {
             barMesh.castShadow = true;
             accentsGroup.add(barMesh);
         } else {
-            // Mitad izquierda con conector macho de rompecabezas
-            const leftGeo = createLeftPuzzlePlaque(plaqueW, plaqueH, baseDepth, plaqueRadius, 24, 14, 14, cutOffsetX);
-            leftGeo.translate(centerPlaqueX - splitGap / 2, 0, 0);
-            const leftMesh = new THREE.Mesh(leftGeo, matBase);
-            leftMesh.name = "Placa_Parte1_Izquierda_Macho";
-            leftMesh.castShadow = true;
-            leftMesh.receiveShadow = true;
-            baseGroup.add(leftMesh);
+            // División automática por partes: la placa se genera en applySlabSegmentation()
+            pendingSlab = {
+                minX: centerPlaqueX - plaqueW / 2,
+                maxX: centerPlaqueX + plaqueW / 2,
+                height: plaqueH,
+                depth: baseDepth,
+                radius: plaqueRadius,
+                matBase,
+                matAccent,
+                namePrefix: 'Placa',
+                baseExtras: [],
+                rails: []
+            };
 
-            // Mitad derecha con cavidad hembra de rompecabezas (tolerancia 0.28 mm)
-            const rightGeo = createRightPuzzlePlaque(plaqueW, plaqueH, baseDepth, plaqueRadius, 24, 14, 14, cutOffsetX, 0.28);
-            rightGeo.translate(centerPlaqueX + splitGap / 2, 0, 0);
-            const rightMesh = new THREE.Mesh(rightGeo, matBase);
-            rightMesh.name = "Placa_Parte2_Derecha_Hembra";
-            rightMesh.castShadow = true;
-            rightMesh.receiveShadow = true;
-            baseGroup.add(rightMesh);
-
-            // Barra decorativa izquierda (sigue a la mitad izquierda)
             const barGeo = createRoundedBoxGeometry(accentBarW, plaqueH - 8, letterDepth * 0.8, Math.min(plaqueRadius * 0.6, 6));
-            barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5 - splitGap / 2, 0, baseDepth + explodeZ * 0.5);
+            barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5, 0, baseDepth + explodeZ * 0.5);
             const barMesh = new THREE.Mesh(barGeo, matAccent);
             barMesh.name = "Barra_Codigo_Dewey";
             barMesh.castShadow = true;
@@ -727,8 +725,7 @@ export async function rebuildSignCAD() {
             const lx = isLeftSide
                 ? (centerPlaqueX - plaqueW / 2 + accentBarW + 13 + effLogoDia / 2)
                 : (centerPlaqueX + plaqueW / 2 - 10 - effLogoDia / 2);
-            const onLeftHalf = lx < cutWorldX;
-            const shiftX = isSplit ? (onLeftHalf ? -splitGap / 2 : splitGap / 2) : 0;
+            const shiftX = 0;
 
             if (logoMode === 'integrated') {
                 const logoZ = key === 'usac' ? 1.15 : Math.max(1.5, letterDepth * 0.62);
@@ -736,7 +733,7 @@ export async function rebuildSignCAD() {
                 if (lGeo) {
                     lGeo.translate(lx + shiftX, 0, baseDepth + explodeZ * 0.6);
                     const m = new THREE.Mesh(lGeo, matAccent);
-                    m.name = `Escudo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda_Parte1' : 'Derecha_Parte2'}`;
+                    m.name = `Escudo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda' : 'Derecha'}`;
                     m.castShadow = true;
                     accentsGroup.add(m);
                 }
@@ -744,7 +741,7 @@ export async function rebuildSignCAD() {
                 const sGeo = createRecessedLogoSocketGeometry(effLogoDia, 1.3, 0.28);
                 sGeo.translate(lx + shiftX, 0, baseDepth + explodeZ * 0.35);
                 const m = new THREE.Mesh(sGeo, matAccent);
-                m.name = `Guia_Encastre_${key.toUpperCase()}_${isLeftSide ? 'Izquierda_Parte1' : 'Derecha_Parte2'}`;
+                m.name = `Guia_Encastre_${key.toUpperCase()}_${isLeftSide ? 'Izquierda' : 'Derecha'}`;
                 m.castShadow = true;
                 accentsGroup.add(m);
             }
@@ -974,8 +971,9 @@ export async function rebuildSignCAD() {
         activeTextShiftX = (leftReserve - rightReserve) / 2;
 
         const maxRawLineW = Math.max(...builtLines.map(b => b.totalW), 60);
+        // Con división por partes el letrero puede crecer libremente: se reparte en las camas que hagan falta
         const maxTargetW = isSplit
-            ? Math.max(140, 390 - leftReserve - rightReserve)
+            ? 2000
             : Math.max(92, 212 - (leftReserve + rightReserve) * 0.82);
         const fitScale = maxRawLineW > maxTargetW ? (maxTargetW / maxRawLineW) : 1.0;
         const finalTextW = maxRawLineW * fitScale;
@@ -997,11 +995,32 @@ export async function rebuildSignCAD() {
         if (lblCGap) lblCGap.textContent = `${splitGap} mm`;
         if (lblCOff) lblCOff.textContent = `${cutOffsetX >= 0 ? '+' : ''}${cutOffsetX} mm`;
 
-        const assembly = createCeilingSuspendedAssembly(panelW, panelH, baseDepth, {
-            isSplit,
-            splitGap,
-            cutOffsetX
-        });
+        const assembly = isSplit
+            ? { baseMeshesInfo: [], accentGeos: [] }
+            : createCeilingSuspendedAssembly(panelW, panelH, baseDepth, { isSplit: false });
+
+        if (isSplit) {
+            const seg = createCeilingSuspendedAssembly(panelW, panelH, baseDepth, { forSegmentation: true });
+            pendingSlab = {
+                minX: -panelW / 2,
+                maxX: panelW / 2,
+                height: panelH,
+                depth: baseDepth,
+                radius: seg.cornerR,
+                matBase,
+                matAccent,
+                namePrefix: 'Panel_Techo',
+                baseExtras: seg.hangerTabs,
+                rails: seg.rails
+            };
+            seg.rings.forEach((g, i) => {
+                g.translate(0, 0, explodeZ * 0.45);
+                const m = new THREE.Mesh(g, matAccent);
+                m.name = `Anillo_Tensor_Techo_${i + 1}`;
+                m.castShadow = true;
+                accentsGroup.add(m);
+            });
+        }
 
         assembly.baseMeshesInfo.forEach(info => {
             const m = new THREE.Mesh(info.geo, matBase);
@@ -1025,8 +1044,7 @@ export async function rebuildSignCAD() {
             const lx = isLeftSide
                 ? (-panelW / 2 + 12 + effLogoDia / 2)
                 : (panelW / 2 - 12 - effLogoDia / 2);
-            const onLeftHalf = lx < cutOffsetX;
-            const shiftX = isSplit ? (onLeftHalf ? -splitGap / 2 : splitGap / 2) : 0;
+            const shiftX = 0;
 
             if (logoMode === 'integrated') {
                 const logoZ = key === 'usac' ? 1.15 : Math.max(1.6, letterDepth * 0.65);
@@ -1035,7 +1053,7 @@ export async function rebuildSignCAD() {
                     lGeo.translate(lx + shiftX, 0, baseDepth + explodeZ * 0.6);
                     // En colgante de techo usamos matFace (blanco) o matAccent para máximo contraste sobre fondo índigo
                     const m = new THREE.Mesh(lGeo, matFace);
-                    m.name = `Escudo_Techo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda_Parte1' : 'Derecha_Parte2'}`;
+                    m.name = `Escudo_Techo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda' : 'Derecha'}`;
                     m.castShadow = true;
                     lettersGroup.add(m);
                 }
@@ -1043,7 +1061,7 @@ export async function rebuildSignCAD() {
                 const sGeo = createRecessedLogoSocketGeometry(effLogoDia, 1.3, 0.28);
                 sGeo.translate(lx + shiftX, 0, baseDepth + explodeZ * 0.35);
                 const m = new THREE.Mesh(sGeo, matAccent);
-                m.name = `Guia_Encastre_Techo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda_Parte1' : 'Derecha_Parte2'}`;
+                m.name = `Guia_Encastre_Techo_${key.toUpperCase()}_${isLeftSide ? 'Izquierda' : 'Derecha'}`;
                 m.castShadow = true;
                 accentsGroup.add(m);
             }
@@ -1073,13 +1091,10 @@ export async function rebuildSignCAD() {
                 }
                 const charW = item.width * fitScale;
                 const centerX = cursorX + charW / 2;
-                const onLeft = centerX < cutOffsetX;
-                const shiftX = isSplit ? (onLeft ? -splitGap / 2 : splitGap / 2) : 0;
-
-                item.geometry.translate(centerX + shiftX, lineY, baseDepth + explodeZ);
+                item.geometry.translate(centerX, lineY, baseDepth + explodeZ);
 
                 const lMesh = new THREE.Mesh(item.geometry, matFace);
-                lMesh.name = `Letra_L${lineIdx + 1}_${idx + 1}_${item.char}_${onLeft ? 'Parte1' : 'Parte2'}`;
+                lMesh.name = `Letra_L${lineIdx + 1}_${idx + 1}_${item.char}`;
                 lMesh.castShadow = true;
                 lettersGroup.add(lMesh);
 
@@ -1146,7 +1161,7 @@ export async function rebuildSignCAD() {
                 const offsetInput = document.getElementById('param-ceiling-offset');
                 const cutOffsetX = (isSplit && offsetInput) ? parseFloat(offsetInput.value) : 0;
 
-                if (!isSplit || splitGap === 0) {
+                if (!isSplit) {
                     subGeo.translate(-sbb.min.x - sw / 2 + mainCenterX, -sbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
                     const subMesh = new THREE.Mesh(subGeo, matSubText);
                     subMesh.name = "Subtitulo_Colgante_Techo";
@@ -1164,11 +1179,10 @@ export async function rebuildSignCAD() {
                         const cbb = cGeo.boundingBox;
                         const cw = cbb.max.x - cbb.min.x;
                         const charCenterX = subCursorX + cw / 2;
-                        const onLeft = charCenterX < (mainCenterX + cutOffsetX);
-                        const shiftX = onLeft ? -splitGap / 2 : splitGap / 2;
+                        const shiftX = 0;
                         cGeo.translate(-cbb.min.x - cw / 2 + charCenterX + shiftX, -cbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
                         const cMesh = new THREE.Mesh(cGeo, matSubText);
-                        cMesh.name = `Subtitulo_${idx + 1}_${ch}_${onLeft ? 'Parte1' : 'Parte2'}`;
+                        cMesh.name = `Subtitulo_${idx + 1}_${ch}`;
                         accentsGroup.add(cMesh);
                         subCursorX += cw + 1.2;
                     });
@@ -1201,7 +1215,7 @@ export async function rebuildSignCAD() {
                 const targetSubCenterX = mainCenterX + userTextOffsetX;
                 const cutWorldX = targetSubCenterX + cutOffsetX;
 
-                if (!isSplit || splitGap === 0) {
+                if (!isSplit) {
                     subGeo.translate(-sbb.min.x - sw / 2 + targetSubCenterX, -sbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
                     const subMesh = new THREE.Mesh(subGeo, matSubText);
                     subMesh.name = "Subtitulo_Clasificacion_Dewey";
@@ -1220,12 +1234,11 @@ export async function rebuildSignCAD() {
                         const cw = cbb.max.x - cbb.min.x;
                         const charCenterX = subCursorX + cw / 2;
 
-                        const onLeft = charCenterX < cutWorldX;
-                        const shiftX = onLeft ? -splitGap / 2 : splitGap / 2;
+                        const shiftX = 0;
 
                         cGeo.translate(-cbb.min.x - cw / 2 + charCenterX + shiftX, -cbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
                         const cMesh = new THREE.Mesh(cGeo, matSubText);
-                        cMesh.name = `Subtitulo_${idx + 1}_${ch}_${onLeft ? 'Parte1' : 'Parte2'}`;
+                        cMesh.name = `Subtitulo_${idx + 1}_${ch}`;
                         accentsGroup.add(cMesh);
 
                         subCursorX += cw + 1.2;
@@ -1303,6 +1316,29 @@ export async function rebuildSignCAD() {
         });
     }
 
+    // Desplazamiento fino del texto para el resto de estilos (Placa ya lo integra al centrar sus líneas).
+    // Mueve letras y subtítulo como un bloque; en la cuña el desplazamiento vertical sigue la rampa inclinada.
+    if (cadState.style !== 'plaque' && (userTextOffsetX !== 0 || userTextOffsetY !== 0)) {
+        let offsetZ = 0;
+        if (cadState.style === 'wedge') {
+            const angleDeg = parseFloat(document.getElementById('param-wedge-angle')?.value || 12);
+            offsetZ = userTextOffsetY * Math.tan((angleDeg * Math.PI) / 180);
+        }
+        // En Bloques y Monolitos cada letra va sobre su propio bloque y el subtítulo lleva su placa inferior:
+        // ahí el ajuste solo afina la letra dentro de su bloque para no despegar el subtítulo de su soporte
+        const perLetterBlocks = cadState.style === 'modular' || cadState.style === 'solid';
+        const shiftPattern = perLetterBlocks ? /^Letra/ : /^(Letra|Subtitulo)/;
+        [...lettersGroup.children, ...accentsGroup.children].forEach(mesh => {
+            if (shiftPattern.test(mesh.name || '')) {
+                mesh.geometry.translate(userTextOffsetX, userTextOffsetY, offsetZ);
+            }
+        });
+    }
+
+    if (pendingSlab) {
+        applySlabSegmentation(pendingSlab);
+    }
+
     // Aplicar Escala Global (si el usuario desea reducir o agrandar proporcionalmente todo el objeto)
     const globalScaleInput = document.getElementById('param-global-scale');
     const globalScaleVal = globalScaleInput ? parseFloat(globalScaleInput.value) : 100;
@@ -1339,9 +1375,124 @@ export async function rebuildSignCAD() {
         const finalBox = new THREE.Box3().setFromObject(printableRoot);
         const size = new THREE.Vector3();
         finalBox.getSize(size);
+        applySegmentLayout();
         updateCADMetrics(size.x, size.y, size.z);
         scheduleAutoSave();
     }
+}
+
+/**
+ * Lee qué panel de división está activo (Placa o Colgante de Techo)
+ */
+function getSplitControls() {
+    const isCeiling = cadState.style === 'ceiling';
+    return {
+        gap: parseFloat(document.getElementById(isCeiling ? 'param-ceiling-gap' : 'param-plaque-gap')?.value || 0),
+        bedView: document.getElementById(isCeiling ? 'ceiling-bed-view-toggle' : 'plaque-bed-view-toggle')?.checked ?? false,
+        infoEl: document.getElementById(isCeiling ? 'ceiling-split-info' : 'plaque-split-info')
+    };
+}
+
+/**
+ * Corta la placa en las partes necesarias para la cama, sin cortar letras, y asigna cada relieve a su parte
+ */
+function applySlabSegmentation(slab) {
+    const globalScale = (parseFloat(document.getElementById('param-global-scale')?.value) || 100) / 100;
+    const maxPartW = maxSegmentWidth(cadState.bedSizeMm) / globalScale;
+
+    // Relieves que el corte NO debe atravesar: letras, subtítulo, escudos, anillos, argollas de techo
+    const reliefMeshes = [...lettersGroup.children, ...accentsGroup.children];
+    const boxOf = geo => { geo.computeBoundingBox(); return geo.boundingBox; };
+    const obstacles = reliefMeshes.map(m => { const b = boxOf(m.geometry); return [b.min.x, b.max.x]; });
+    slab.baseExtras.forEach(g => { const b = boxOf(g); obstacles.push([b.min.x, b.max.x]); });
+
+    const { cuts, throughText } = planCuts({ minX: slab.minX, maxX: slab.maxX, obstacles, maxPartW });
+    const parts = buildSegmentedSlab({
+        minX: slab.minX, maxX: slab.maxX, height: slab.height, depth: slab.depth, radius: slab.radius, cuts
+    });
+    const partIndexAt = x => {
+        const k = cuts.findIndex(c => x < c);
+        return k === -1 ? cuts.length : k;
+    };
+
+    // Cuerpo de cada parte (+ argollas de techo que caen dentro de ella)
+    const extrasByPart = parts.map(() => []);
+    slab.baseExtras.forEach(g => {
+        const b = boxOf(g);
+        extrasByPart[partIndexAt((b.min.x + b.max.x) / 2)].push(g);
+    });
+    parts.forEach((part, k) => {
+        [...part.geos, ...extrasByPart[k]].forEach((g, i) => {
+            const m = new THREE.Mesh(g, slab.matBase);
+            m.name = `${slab.namePrefix}_Parte${k + 1}${i === 0 ? '' : `_Cuerpo${i + 1}`}`;
+            m.userData.part = k;
+            m.castShadow = true;
+            m.receiveShadow = true;
+            baseGroup.add(m);
+        });
+
+        // Rieles decorativos cortados exactamente en la costura
+        slab.rails.forEach(rail => {
+            const w = part.x1 - part.x0;
+            const g = createRoundedBoxGeometry(w, rail.h, rail.d, 1.5);
+            g.translate((part.x0 + part.x1) / 2, rail.y, slab.depth);
+            const m = new THREE.Mesh(g, slab.matAccent);
+            m.name = `${rail.name}_Parte${k + 1}`;
+            m.userData.part = k;
+            m.castShadow = true;
+            accentsGroup.add(m);
+        });
+    });
+
+    // Cada relieve pertenece a la parte donde está su centro (ninguno queda sobre un corte)
+    reliefMeshes.forEach(m => {
+        const b = boxOf(m.geometry);
+        m.userData.part = partIndexAt((b.min.x + b.max.x) / 2);
+    });
+
+    cadState.segmentation = {
+        count: parts.length,
+        cuts,
+        throughText,
+        widths: parts.map(p => p.x1 - p.x0)
+    };
+}
+
+/**
+ * Vista explosionada (separación entre partes) o cada parte centrada sobre su propia cama de impresión
+ */
+function applySegmentLayout() {
+    const seg = cadState.segmentation;
+    const meshes = [...baseGroup.children, ...accentsGroup.children, ...lettersGroup.children];
+    const { gap, bedView } = getSplitControls();
+
+    if (!seg || seg.count < 1) {
+        setBedLayout(1);
+        return;
+    }
+
+    const n = seg.count;
+    const pitch = cadState.bedSizeMm + 30;
+    const partBoxes = Array.from({ length: n }, () => new THREE.Box3());
+    meshes.forEach(m => {
+        if (m.userData.part === undefined) return;
+        m.geometry.computeBoundingBox();
+        partBoxes[m.userData.part].union(m.geometry.boundingBox);
+    });
+
+    meshes.forEach(m => {
+        const k = m.userData.part;
+        if (k === undefined) return;
+        if (bedView && n > 1) {
+            const c = new THREE.Vector3();
+            partBoxes[k].getCenter(c);
+            m.position.set((k - (n - 1) / 2) * pitch - c.x, -c.y, 0);
+        } else {
+            m.position.set((k - (n - 1) / 2) * gap, 0, 0);
+        }
+    });
+
+    setBedLayout(bedView && n > 1 ? n : 1, pitch);
 }
 
 /**
@@ -1406,64 +1557,62 @@ function updateCADMetrics(widthMm, heightMm, depthMm) {
     if (bboxEl) bboxEl.textContent = dimText;
     if (dimBadgeEl) dimBadgeEl.textContent = dimText;
 
-    const splitToggle = document.getElementById('plaque-split-toggle');
-    const ceilingSplitToggle = document.getElementById('ceiling-split-toggle');
-    const isPlaqueSplit = (cadState.style === 'plaque' && splitToggle && splitToggle.checked)
-        || (cadState.style === 'ceiling' && ceilingSplitToggle && ceilingSplitToggle.checked);
-
     let isOverBed = (w > cadState.bedSizeMm || h > cadState.bedSizeMm);
+    const seg = cadState.segmentation;
+    const splitInfoEl = getSplitControls().infoEl;
 
-    if (isPlaqueSplit) {
-        // En modo placa dividida, medimos cada mitad por separado
-        const leftBox = new THREE.Box3();
-        const rightBox = new THREE.Box3();
+    const setAlert = (ok, text) => {
+        if (!bedAlertBadgeEl) return;
+        bedAlertBadgeEl.textContent = text;
+        bedAlertBadgeEl.className = ok
+            ? "text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+            : "text-[10px] px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse";
+        btnFitBed?.classList.toggle('hidden', ok);
+    };
 
-        [baseGroup, accentsGroup, lettersGroup].forEach(grp => {
-            grp.children.forEach(mesh => {
-                const n = mesh.name || '';
-                if (n.includes('Parte1') || n.includes('Izquierda') || n.includes('Barra_Codigo_Dewey')) {
-                    leftBox.expandByObject(mesh);
-                }
-                if (n.includes('Parte2') || n.includes('Derecha')) {
-                    rightBox.expandByObject(mesh);
-                }
-            });
+    if (seg) {
+        // Con división por partes se mide cada parte por separado (incluida la lengüeta de unión)
+        const boxes = Array.from({ length: seg.count }, () => new THREE.Box3());
+        [baseGroup, accentsGroup, lettersGroup].forEach(grp => grp.children.forEach(m => {
+            if (m.userData.part === undefined) return;
+            m.geometry.computeBoundingBox();
+            boxes[m.userData.part].union(m.geometry.boundingBox);
+        }));
+        const dims = boxes.map(b => {
+            const v = new THREE.Vector3();
+            if (!b.isEmpty()) b.getSize(v);
+            return v;
         });
+        const widths = dims.map(v => Math.round(v.x));
+        isOverBed = dims.some(v => Math.max(v.x, v.y) > cadState.bedSizeMm);
 
-        const leftSize = new THREE.Vector3();
-        const rightSize = new THREE.Vector3();
-        if (!leftBox.isEmpty()) leftBox.getSize(leftSize);
-        if (!rightBox.isEmpty()) rightBox.getSize(rightSize);
-
-        const w1 = Math.round(leftSize.x);
-        const w2 = Math.round(rightSize.x);
-        const maxPartDim = Math.max(leftSize.x, leftSize.y, rightSize.x, rightSize.y);
-
-        isOverBed = maxPartDim > cadState.bedSizeMm;
-
-        if (bedAlertBadgeEl) {
-            if (isOverBed) {
-                bedAlertBadgeEl.textContent = `⚠️ Una mitad excede 25 cm (P1: ${w1} mm, P2: ${w2} mm)`;
-                bedAlertBadgeEl.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse";
-                btnFitBed?.classList.remove('hidden');
-            } else {
-                bedAlertBadgeEl.textContent = `✅ Ensamble 2 Piezas: Cada mitad cabe en 25 cm (P1: ${w1} mm, P2: ${w2} mm)`;
-                bedAlertBadgeEl.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-                btnFitBed?.classList.add('hidden');
-            }
+        if (isOverBed) {
+            setAlert(false, `⚠️ Una parte no cabe en la cama: el alto (${h} mm) supera ${cadState.bedSizeMm} mm`);
+        } else if (seg.count === 1) {
+            setAlert(true, `✅ Cabe en una sola cama (${w} mm): no hace falta dividir`);
+        } else {
+            setAlert(true, `✅ ${seg.count} partes, una por cama (${widths.map(x => x + ' mm').join(' · ')})`);
         }
+
+        if (splitInfoEl) {
+            const lines = [
+                seg.count === 1
+                    ? `El letrero mide ${w} mm y cabe completo en la cama de ${cadState.bedSizeMm} mm.`
+                    : `Dividido en <strong>${seg.count} partes</strong>: ${widths.map((x, i) => `P${i + 1} ${x} mm`).join(' · ')}.`,
+                seg.throughText
+                    ? '⚠️ Hay una palabra más larga que la cama: un corte atraviesa una letra. Reduce el tamaño de letra o divide el texto en 2 líneas.'
+                    : (seg.count > 1 ? 'Los cortes pasan entre letras: ningún relieve queda sobre una costura.' : '')
+            ].filter(Boolean);
+            splitInfoEl.innerHTML = lines.join('<br>');
+            splitInfoEl.className = seg.throughText
+                ? 'p-2 rounded bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-300 leading-snug'
+                : 'p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-snug';
+        }
+    } else if (isOverBed) {
+        const canSplit = cadState.style === 'plaque' || cadState.style === 'ceiling';
+        setAlert(false, `⚠️ Excede cama 25 cm (${Math.max(w, h)} mm)${canSplit ? ' • Activa "División automática por partes"' : ''}`);
     } else {
-        if (bedAlertBadgeEl) {
-            if (isOverBed) {
-                bedAlertBadgeEl.textContent = `⚠️ Excede cama 25 cm (${Math.max(w, h)} mm)`;
-                bedAlertBadgeEl.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse";
-                btnFitBed?.classList.remove('hidden');
-            } else {
-                bedAlertBadgeEl.textContent = `✅ Cabe en placa de 25 cm (250 mm)`;
-                bedAlertBadgeEl.className = "text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-                btnFitBed?.classList.add('hidden');
-            }
-        }
+        setAlert(true, `✅ Cabe en placa de 25 cm (250 mm)`);
     }
 
     updateBedAlertStatus(isOverBed);

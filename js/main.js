@@ -8,6 +8,7 @@ import { rebuildHangingSignCAD } from './cad/hangingSignGenerator.js';
 import { exposeGlobalMethods, renderUserPalettesList, renderHangingPlatesList } from './ui/uiController.js';
 import { updatePitchCalculator } from './ui/calculator.js';
 import { restoreLastSession, renderUserPresetsList } from './config/persistence.js';
+import { initVitrinaPanel } from './ui/vitrinaPanel.js';
 
 // 1. Exponer métodos a window para compatibilidad con eventos del DOM
 exposeGlobalMethods();
@@ -34,3 +35,6 @@ updatePitchCalculator();
 // 7. Generar modelos iniciales
 rebuildSignCAD();
 rebuildHangingSignCAD();
+
+// 8. Cargar la vitrina pública (public/vitrina.json) para marcar ★ y la bitácora de horas
+initVitrinaPanel();

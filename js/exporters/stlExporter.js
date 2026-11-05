@@ -42,59 +42,6 @@ export function exportSTL(partMode = 'base') {
 }
 
 /**
- * Exporta una mitad de la placa dividida (Parte 1: Izquierda Macho o Parte 2: Derecha Hembra)
- * Centrada automáticamente en (0,0,0) para colocación perfecta en la cama de 25 cm
- */
-export function exportPlaquePartSTL(part = 'left') {
-    const isLeft = part === 'left';
-    const targetMeshes = [];
-
-    [...baseGroup.children, ...lettersGroup.children, ...accentsGroup.children].forEach(mesh => {
-        const n = mesh.name || '';
-        if (isLeft) {
-            if (n.includes('Parte1') || n.includes('Izquierda') || n.includes('Barra_Codigo_Dewey')) {
-                targetMeshes.push(mesh);
-            }
-        } else {
-            if (n.includes('Parte2') || n.includes('Derecha')) {
-                targetMeshes.push(mesh);
-            }
-        }
-    });
-
-    if (targetMeshes.length === 0) {
-        showToast('No hay piezas de esta mitad', 'Activa la opción "Dividir Placa en 2 Partes" en el panel');
-        return;
-    }
-
-    const tempGroup = new THREE.Group();
-    targetMeshes.forEach(m => {
-        const clone = m.clone(true);
-        tempGroup.add(clone);
-    });
-
-    // Centrar en el origen para que quede perfectamente en la cama de impresión 3D
-    const box = new THREE.Box3().setFromObject(tempGroup);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    tempGroup.position.set(-center.x, -center.y, -box.min.z);
-
-    const exporter = new STLExporter();
-    const stlBinary = exporter.parse(tempGroup, { binary: true });
-    const blob = new Blob([stlBinary], { type: 'application/octet-stream' });
-    const rawName = sanitizeFileName(document.getElementById('sign-text')?.value || 'LETRERO');
-    const suffix = isLeft ? 'PARTE1_IZQUIERDA_MACHO' : 'PARTE2_DERECHA_HEMBRA';
-
-    downloadBlob(blob, `BiblioSign_${rawName}_${suffix}.stl`);
-    showToast(
-        `Descargado: ${suffix}.stl`,
-        isLeft
-            ? 'Mitad izquierda con conector macho de rompecabezas (centrada para cama 25 cm)'
-            : 'Mitad derecha con cavidad hembra y holgura 0.28 mm (centrada para cama 25 cm)'
-    );
-}
-
-/**
  * Exporta los medallones institucionales independientes (USAC y/o Biblioteca Central BC)
  * centrados en (0,0,0) listos para imprimirse aparte a alta resolución (capa 0.12 mm o boquilla 0.2 mm).
  */

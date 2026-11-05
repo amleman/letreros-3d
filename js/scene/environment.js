@@ -4,6 +4,9 @@ import { cadState } from '../config/state.js';
 let shelfMesh = null;
 let buildPlateGroup = null;
 let bedBorderMesh = null;
+// Camas extra para la vista "cada parte en su cama" (comparten geometría y material con la principal)
+let extraBeds = [];
+let bedLayout = { count: 1, pitch: 280 };
 
 /**
  * Crea una textura de cuadrícula milimétrica para la cama de impresión 3D (250 x 250 mm / 25 cm²)
@@ -172,6 +175,13 @@ export function buildEnvironment(scene) {
         shelfMesh = null;
     }
 
+    // Rótulo colgante: se exhibe sobre el lateral del anaquel (hangingMountGroup), sin cama ni estante
+    if (cadState.activeWorkspace === 'hanging') {
+        buildPlateGroup.visible = false;
+        syncExtraBeds();
+        return;
+    }
+
     if (cadState.showShelf) {
         const shelfGeo = new THREE.BoxGeometry(360, 110, 16);
         shelfGeo.translate(0, 0, -8.5);
@@ -191,6 +201,33 @@ export function buildEnvironment(scene) {
         buildPlateGroup.visible = false;
     } else {
         buildPlateGroup.visible = cadState.showBedGrid;
+    }
+    syncExtraBeds();
+}
+
+/**
+ * Muestra `count` camas de impresión en fila, separadas `pitch` mm (una por cada parte del letrero)
+ */
+export function setBedLayout(count = 1, pitch = 280) {
+    bedLayout = { count, pitch };
+    syncExtraBeds();
+}
+
+function syncExtraBeds() {
+    if (!buildPlateGroup || !buildPlateGroup.parent) return;
+    const scene = buildPlateGroup.parent;
+    extraBeds.forEach(b => scene.remove(b));
+    extraBeds = [];
+
+    const { count, pitch } = bedLayout;
+    buildPlateGroup.position.x = count > 1 ? -((count - 1) / 2) * pitch : 0;
+    for (let k = 1; k < count; k++) {
+        const bed = buildPlateGroup.clone();
+        bed.name = `Placa_Impresion_25cm_${k + 1}`;
+        bed.position.x = (k - (count - 1) / 2) * pitch;
+        bed.visible = buildPlateGroup.visible;
+        scene.add(bed);
+        extraBeds.push(bed);
     }
 }
 

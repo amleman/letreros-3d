@@ -65,7 +65,7 @@ export const institutionalFonts = {
             'https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5.0.8/files/playfair-display-latin-700-normal.woff'
         ],
         cssFamily: '"Playfair Display", serif',
-        desc: 'Alta imprenta clásica europea. Ideal para letras capitulares, salas históricas y colecciones especiales.'
+        desc: 'Alta imprenta clásica europea. Números alineados a la altura de las mayúsculas. Ideal para capitulares, salas históricas y colecciones especiales.'
     },
     bebasneue: {
         name: 'Bebas Neue Regular',

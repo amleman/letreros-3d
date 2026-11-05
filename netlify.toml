@@ -1,0 +1,18 @@
+# Netlify publica SOLO la vitrina para jefatura (visor.html + public/vitrina.json).
+# El diseñador CAD (index.html) no se incluye en este build: se usa únicamente en local.
+[build]
+  command = "npm run build:vitrina"
+  publish = "dist"
+
+# La raíz del sitio abre directamente la vitrina
+[[redirects]]
+  from = "/"
+  to = "/visor.html"
+  status = 200
+
+# Cualquier intento de abrir el diseñador CAD regresa a la vitrina
+[[redirects]]
+  from = "/index.html"
+  to = "/visor.html"
+  status = 301
+  force = true

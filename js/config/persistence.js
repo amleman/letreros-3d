@@ -5,6 +5,7 @@
  */
 
 import { cadState } from './state.js';
+import { isInVitrina } from '../ui/vitrinaPanel.js';
 import { institutionalFonts } from './fonts.js';
 
 export const STORAGE_LAST_SESSION_KEY = 'bibliosign_last_session_config';
@@ -447,6 +448,9 @@ export function renderUserPresetsList() {
                         </div>
                     </button>
                     <div class="flex items-center gap-1 shrink-0">
+                        <button type="button" onclick="window.toggleVitrinaDesign('${item.id}')" class="text-[10px] px-2 py-1 rounded-lg border transition font-bold ${isInVitrina(item.id) ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300'}" title="${isInVitrina(item.id) ? 'Está en la vitrina de Netlify (clic para quitar)' : 'Mostrar este diseño en la vitrina de Netlify para jefatura'}">
+                            ★
+                        </button>
                         <button type="button" onclick="window.sharePresetToVisor('${item.id}')" class="text-[10px] bg-indigo-900/80 hover:bg-indigo-700 text-indigo-200 px-2 py-1 rounded-lg border border-indigo-500/40 transition font-bold flex items-center gap-1" title="Copiar enlace para que un tercero o jefe lo vea en el visor">
                             <i data-lucide="share-2" class="w-3 h-3"></i>
                             <span>Visor</span>

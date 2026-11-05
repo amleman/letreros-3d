@@ -1,4 +1,9 @@
 import { collectExportObjects, sanitizeFileName, downloadBlob } from './exportUtils.js';
+import { build3MFBlob } from './threeMfWriter.js';
+import { buildJointTestCoupons } from '../cad/segmentation.js';
+import * as THREE from 'three';
+import { printableRoot, baseGroup, lettersGroup, accentsGroup } from '../scene/sceneManager.js';
+import { cadState } from '../config/state.js';
 import { showToast } from '../ui/uiController.js';
 
 /**
@@ -16,52 +21,12 @@ export async function exportBambu3MF() {
 
     showToast('Empaquetando archivo .3MF Multi-Pieza...', 'Generando objetos separados para Bambu Studio');
 
-    let resourcesXml = '';
-    let buildItemsXml = '';
+    const blob = await build3MFBlob(exportObjects, { root: printableRoot });
+    if (!blob) {
+        showToast('No hay geometrías para exportar', 'Verifica el texto ingresado');
+        return;
+    }
 
-    exportObjects.forEach((item, index) => {
-        const objId = index + 1;
-        const { verticesXml, trianglesXml } = build3MFMeshXml(item.meshes);
-        if (!verticesXml || !trianglesXml) return;
-
-        resourcesXml += `
-        <object id="${objId}" name="${item.name}" type="model">
-            <mesh>
-                <vertices>${verticesXml}</vertices>
-                <triangles>${trianglesXml}</triangles>
-            </mesh>
-        </object>`;
-
-        buildItemsXml += `
-        <item objectid="${objId}" />`;
-    });
-
-    const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:space="preserve" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
-    <metadata name="Application">BiblioSign 3D CAD Studio</metadata>
-    <resources>${resourcesXml}
-    </resources>
-    <build>${buildItemsXml}
-    </build>
-</model>`;
-
-    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
-    <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml" />
-</Types>`;
-
-    const relsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-    <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" />
-</Relationships>`;
-
-    const zip = new window.JSZip();
-    zip.file('[Content_Types].xml', contentTypesXml);
-    zip.folder('_rels').file('.rels', relsXml);
-    zip.folder('3D').file('3dmodel.model', modelXml);
-
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
     const rawName = sanitizeFileName(document.getElementById('sign-text')?.value || 'LETRERO');
     downloadBlob(blob, `BiblioSign_${rawName}_BAMBU_MULTICOLOR.3mf`);
 
@@ -72,48 +37,69 @@ export async function exportBambu3MF() {
 }
 
 /**
- * Construye los nodos XML <vertex> y <triangle> para el estándar 3MF
+ * DIVISIÓN POR PARTES: descarga un .3MF por cada parte, centrada en su propia cama de impresión.
+ * Cada archivo conserva las capas de color (base / letras / acentos) como objetos separados para el AMS.
  */
-function build3MFMeshXml(meshList) {
-    const vLines = [];
-    const tLines = [];
-    let vertexOffset = 0;
+export async function exportSegmentParts3MF() {
+    const seg = cadState.segmentation;
+    if (!seg || seg.count < 1) {
+        showToast('Activa la división por partes', 'Marca "División automática por partes" en el panel de la placa');
+        return;
+    }
 
-    meshList.forEach(mesh => {
-        const geom = mesh.geometry;
-        if (!geom || !geom.attributes.position) return;
+    const rawName = sanitizeFileName(document.getElementById('sign-text')?.value || 'LETRERO');
+    const layers = [
+        { name: '1_Base_Estructura', group: baseGroup },
+        { name: '2_Letras_Relieve', group: lettersGroup },
+        { name: '3_Acentos_Y_Marco', group: accentsGroup }
+    ];
 
-        const pos = geom.attributes.position;
-        const index = geom.index;
+    for (let k = 0; k < seg.count; k++) {
+        const items = layers
+            .map(l => ({ name: `${l.name}_P${k + 1}`, meshes: l.group.children.filter(m => m.userData.part === k) }))
+            .filter(it => it.meshes.length > 0);
+        if (items.length === 0) continue;
 
-        for (let i = 0; i < pos.count; i++) {
-            const x = pos.getX(i).toFixed(4);
-            const y = pos.getY(i).toFixed(4);
-            const z = pos.getZ(i).toFixed(4);
-            vLines.push(`<vertex x="${x}" y="${y}" z="${z}" />`);
-        }
+        // Origen del archivo = centro de la parte apoyada en Z = 0
+        const box = new THREE.Box3();
+        items.forEach(it => it.meshes.forEach(m => box.expandByObject(m)));
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        const origin = new THREE.Object3D();
+        origin.position.set(center.x, center.y, box.min.z);
+        origin.updateMatrixWorld(true);
 
-        if (index) {
-            for (let i = 0; i < index.count; i += 3) {
-                const v1 = index.getX(i) + vertexOffset;
-                const v2 = index.getX(i + 1) + vertexOffset;
-                const v3 = index.getX(i + 2) + vertexOffset;
-                tLines.push(`<triangle v1="${v1}" v2="${v2}" v3="${v3}" />`);
-            }
-        } else {
-            for (let i = 0; i < pos.count; i += 3) {
-                const v1 = i + vertexOffset;
-                const v2 = i + 1 + vertexOffset;
-                const v3 = i + 2 + vertexOffset;
-                tLines.push(`<triangle v1="${v1}" v2="${v2}" v3="${v3}" />`);
-            }
-        }
+        const blob = await build3MFBlob(items, { root: origin });
+        if (!blob) continue;
+        downloadBlob(blob, `BiblioSign_${rawName}_Parte_${k + 1}_de_${seg.count}.3mf`);
+        // Pausa corta: algunos navegadores bloquean varias descargas simultáneas
+        await new Promise(r => setTimeout(r, 400));
+    }
 
-        vertexOffset += pos.count;
-    });
+    showToast(
+        `¡${seg.count} partes descargadas!`,
+        'Imprime cada .3MF en su propia cama; ensambla bajando cada parte sobre las lengüetas de la anterior'
+    );
+}
 
-    return {
-        verticesXml: vLines.join(''),
-        trianglesXml: tLines.join('')
-    };
+/**
+ * PRUEBA DE ENSAMBLE: 3 pares macho/hembra sin letras (holguras 0.10 / 0.15 / 0.20 mm) en una sola cama,
+ * con el mismo espesor de la placa actual, para probar resistencia y ajuste antes de imprimir el letrero.
+ */
+export async function exportJointTest3MF() {
+    const isCeiling = cadState.style === 'ceiling';
+    const height = parseFloat(document.getElementById(isCeiling ? 'param-ceiling-height' : 'param-plaque-height')?.value) || 70;
+    const depth = parseFloat(document.getElementById('param-base-depth')?.value) || 6;
+    const radius = parseFloat(document.getElementById('param-plaque-radius')?.value) || 8;
+
+    const pieces = buildJointTestCoupons({ height, depth, radius });
+    const items = pieces.map(p => ({ name: p.name, meshes: p.geos.map(g => new THREE.Mesh(g)), ignoreRoot: true }));
+    const blob = await build3MFBlob(items, { application: 'BiblioSign 3D - Prueba de ensamble' });
+    if (!blob) return;
+
+    downloadBlob(blob, `BiblioSign_Prueba_Ensamble_Cola_Milano_${depth}mm.3mf`);
+    showToast(
+        'Prueba de ensamble descargada',
+        '3 pares: 1 punto = 0.10 mm, 2 puntos = 0.15 mm, 3 puntos = 0.20 mm de holgura'
+    );
 }
