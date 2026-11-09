@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { cadState } from '../config/state.js';
 import { ensureFontLoaded } from './fontLoader.js';
-import { createUTF8CharExtrudeGeometry } from './glyphConverter.js';
+import { createUTF8CharExtrudeGeometry, glyphLayoutBounds } from './glyphConverter.js';
 import {
     createOrnateBracketGeometry,
     createHangingPlateMesh,
@@ -171,6 +171,11 @@ export async function rebuildHangingSignCAD() {
         if (otFont && rawText.length > 0) {
             let cursorX = 0;
             const letterGeos = [];
+            // Línea base común (letra 'H'): las letras con tilde no deben quedar más bajas que las demás
+            const refGeo = createUTF8CharExtrudeGeometry(otFont, 'H', letterSize, 1, 0);
+            const refMinY = refGeo ? refGeo.boundingBox.min.y : 0;
+            const refCapH = refGeo ? refGeo.boundingBox.max.y - refGeo.boundingBox.min.y : letterSize;
+            if (refGeo) refGeo.dispose();
             Array.from(rawText).forEach(ch => {
                 if (ch === ' ') {
                     cursorX += letterSize * 0.4;
@@ -179,9 +184,10 @@ export async function rebuildHangingSignCAD() {
                 const lGeo = createUTF8CharExtrudeGeometry(otFont, ch, letterSize, letterDepth, 0.5);
                 if (lGeo) {
                     const bb = lGeo.boundingBox;
-                    lGeo.translate(cursorX - bb.min.x, -bb.min.y - (bb.max.y - bb.min.y) / 2, 0);
+                    const lb = glyphLayoutBounds(otFont, ch, letterSize, 0.5) || { minX: bb.min.x, maxX: bb.max.x };
+                    lGeo.translate(cursorX - lb.minX, -refMinY - refCapH / 2, 0);
                     letterGeos.push(lGeo);
-                    cursorX += (bb.max.x - bb.min.x) + 2.5;
+                    cursorX += (lb.maxX - lb.minX) + 2.5;
                 }
             });
 

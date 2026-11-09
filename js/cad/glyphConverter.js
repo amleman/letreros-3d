@@ -105,6 +105,26 @@ function getTextPath(otFont, text, fontSize) {
 }
 
 /**
+ * Caja horizontal que se usa para ESPACIAR un carácter.
+ * En letras acentuadas angostas (í, ì, ï) la tilde sobresale de la letra y ensanchaba su caja, dejando un
+ * hueco visible después ("Económí a"). Se espacia con la caja de la letra base (sin tilde), como en tipografía
+ * impresa: la tilde puede sobresalir sin empujar a la letra siguiente.
+ * @returns {{minX: number, maxX: number} | null} null = usar la caja propia de la geometría
+ */
+export function glyphLayoutBounds(otFont, charStr, sizeMm, bevelMm = 0) {
+    if (!otFont || otFont.isCanvasFallback || [...charStr].length !== 1) return null;
+    const decomposed = charStr.normalize('NFD');
+    if (decomposed === charStr) return null;
+
+    const base = decomposed[0];
+    const box = getTextPath(otFont, base, sizeMm * 1.32).getBoundingBox();
+    if (!isFinite(box.x1) || !isFinite(box.x2) || box.x2 <= box.x1) return null;
+    // El bisel engrosa el contorno (bevelSize = bevelMm * 0.65, igual que en la extrusión)
+    const pad = bevelMm > 0 ? bevelMm * 0.65 : 0;
+    return { minX: box.x1 - pad, maxX: box.x2 + pad };
+}
+
+/**
  * CONVERSOR VECTORIAL UTF-8: Convierte cualquier carácter (incluyendo Á, É, Í, Ó, Ú, Ñ, Ü) desde OpenType a THREE.ExtrudeGeometry
  */
 export function createUTF8CharExtrudeGeometry(otFont, charStr, sizeMm, depthMm, bevelMm) {

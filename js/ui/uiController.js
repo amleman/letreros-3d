@@ -784,10 +784,10 @@ export function deleteSavedConfig(id) {
 }
 
 export function resetTextOffsets() {
-    const ox = document.getElementById('param-text-offset-x');
-    const oy = document.getElementById('param-text-offset-y');
-    if (ox) ox.value = 0;
-    if (oy) oy.value = 0;
+    ['param-text-offset-x', 'param-text-offset-y', 'param-sub-offset-x', 'param-sub-offset-y'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 0;
+    });
     triggerRebuild();
 }
 

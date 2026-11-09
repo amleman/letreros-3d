@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { cadState } from '../config/state.js';
 import { institutionalFonts } from '../config/fonts.js';
 import { ensureFontLoaded } from './fontLoader.js';
-import { createUTF8CharExtrudeGeometry } from './glyphConverter.js';
+import { createUTF8CharExtrudeGeometry, glyphLayoutBounds } from './glyphConverter.js';
 import {
     createChamferedBoxGeometry,
     createRoundedBoxGeometry,
@@ -100,9 +100,11 @@ function buildLineGlyphItems(otFont, textStr, letterSize, targetZ, bevelSize, sp
             return;
         }
         const bb = charGeo.boundingBox;
-        const w = bb.max.x - bb.min.x;
+        // Espaciado por la letra base: la tilde de "í" no debe empujar a la letra siguiente
+        const lb = glyphLayoutBounds(otFont, ch, letterSize, bevelSize) || { minX: bb.min.x, maxX: bb.max.x };
+        const w = lb.maxX - lb.minX;
         const h = bb.max.y - bb.min.y;
-        charGeo.translate(-bb.min.x - w / 2, -refBaselineMinY - refCapHeight / 2, 0);
+        charGeo.translate(-lb.minX - w / 2, -refBaselineMinY - refCapHeight / 2, 0);
 
         items.push({
             isSpace: false,
@@ -197,6 +199,16 @@ export async function rebuildSignCAD() {
         subOptionsPanel.classList.toggle('hidden', !showSub);
     }
 
+    // Desplazamiento independiente del subtítulo (se suma al desplazamiento de todo el texto)
+    document.getElementById('sub-offset-row')?.classList.toggle('hidden', !showSub);
+    const subOffsetX = parseFloat(document.getElementById('param-sub-offset-x')?.value || 0);
+    const subOffsetY = parseFloat(document.getElementById('param-sub-offset-y')?.value || 0);
+    const fmtMm = v => `${v >= 0 ? '+' : ''}${v} mm`;
+    const lblSubOffX = document.getElementById('lbl-sub-offset-x');
+    const lblSubOffY = document.getElementById('lbl-sub-offset-y');
+    if (lblSubOffX) lblSubOffX.textContent = fmtMm(subOffsetX);
+    if (lblSubOffY) lblSubOffY.textContent = fmtMm(subOffsetY);
+
     const subFontKey = document.getElementById('param-sub-font')?.value || fontKey;
     const subHex = document.getElementById('color-subtext')?.value || accentHex;
     const subColorLabel = document.getElementById('lbl-color-subtext');
@@ -256,11 +268,13 @@ export async function rebuildSignCAD() {
         }
 
         const bb = charGeo.boundingBox;
-        const w = bb.max.x - bb.min.x;
+        // Espaciado por la letra base: la tilde de "í" no debe empujar a la letra siguiente
+        const lb = glyphLayoutBounds(otFont, ch, charSize, bevelSize) || { minX: bb.min.x, maxX: bb.max.x };
+        const w = lb.maxX - lb.minX;
         const h = bb.max.y - bb.min.y;
 
         // Centrado horizontal y alineación vertical estricta a línea base
-        charGeo.translate(-bb.min.x - w / 2, -refBaselineMinY - refCapHeight / 2, 0);
+        charGeo.translate(-lb.minX - w / 2, -refBaselineMinY - refCapHeight / 2, 0);
 
         letterItems.push({
             isSpace: false,
@@ -277,12 +291,14 @@ export async function rebuildSignCAD() {
 
     // Ocultar paneles condicionales por defecto y activar según estilo
     const plaquePanelEl = document.getElementById('plaque-options-panel');
+    const shelfPanelEl = document.getElementById('shelf-options-panel');
     const wedgePanelEl = document.getElementById('wedge-options-panel');
     const ceilingPanelEl = document.getElementById('ceiling-options-panel');
     const logosPanelEl = document.getElementById('institutional-logos-panel');
     const supportsInstitutionalLogos = (cadState.style === 'ceiling' || cadState.style === 'wedge' || cadState.style === 'plaque');
 
     if (plaquePanelEl) plaquePanelEl.classList.toggle('hidden', cadState.style !== 'plaque');
+    if (shelfPanelEl) shelfPanelEl.classList.toggle('hidden', cadState.style !== 'shelf_clip');
     if (wedgePanelEl) wedgePanelEl.classList.toggle('hidden', cadState.style !== 'wedge');
     if (ceilingPanelEl) ceilingPanelEl.classList.toggle('hidden', cadState.style !== 'ceiling');
     if (logosPanelEl) logosPanelEl.classList.toggle('hidden', !supportsInstitutionalLogos);
@@ -309,6 +325,7 @@ export async function rebuildSignCAD() {
     const hasLeftOnSign = placeOnSign && leftLogoKey !== 'none';
     const hasRightOnSign = placeOnSign && rightLogoKey !== 'none';
     let activeTextShiftX = 0;
+    let shelfClipH = 32; // Alto real de la placa del canto de anaquel (lo usa también el subtítulo)
 
     // =====================================================================
     // ESTILO 1: BLOQUES MODULARES (MAKER) — INTACTO
@@ -757,9 +774,28 @@ export async function rebuildSignCAD() {
         let cursorX = 0;
         const totalW_approx = letterItems.reduce((acc, it) => acc + (it.isSpace ? it.width : it.width + spacing), 0);
         const padX = 24;
-        const clipW = Math.max(totalW_approx + padX * 2, 80);
+        const autoClipW = Math.round(Math.max(totalW_approx + padX * 2, 80));
         // Asegurar alto mínimo de 32 mm para alojar detrás la pinza de balda de 19 mm
-        const clipH = Math.max(32, showSub && subText ? letterSize * 1.95 : letterSize * 1.45);
+        const autoClipH = Math.round(Math.max(32, showSub && subText ? letterSize * 1.95 : letterSize * 1.45));
+
+        // Medidas personalizables (igual que la Placa Wayfinding): nunca menores a lo que pide el texto
+        const shelfWInput = document.getElementById('param-shelf-width');
+        const shelfHInput = document.getElementById('param-shelf-height');
+        if (shelfWInput && (!shelfWInput.dataset.touched || parseFloat(shelfWInput.value) < autoClipW)) {
+            shelfWInput.value = autoClipW;
+        }
+        if (shelfHInput && (!shelfHInput.dataset.touched || parseFloat(shelfHInput.value) < autoClipH)) {
+            shelfHInput.value = autoClipH;
+        }
+        const clipW = shelfWInput ? parseFloat(shelfWInput.value) : autoClipW;
+        const clipH = shelfHInput ? parseFloat(shelfHInput.value) : autoClipH;
+        shelfClipH = clipH;
+
+        const lblShelfW = document.getElementById('lbl-shelf-width');
+        const lblShelfH = document.getElementById('lbl-shelf-height');
+        if (lblShelfW) lblShelfW.textContent = `${Math.round(clipW)} mm`;
+        if (lblShelfH) lblShelfH.textContent = `${Math.round(clipH)} mm`;
+
         const centerClipX = (totalW_approx - spacing) / 2;
 
         letterItems.forEach((item, idx) => {
@@ -1189,8 +1225,7 @@ export async function rebuildSignCAD() {
                 }
             } else if (cadState.style === 'shelf_clip') {
                 // En canto anaquel: Queda en la parte baja de la placa frontal
-                const clipH = Math.max(32, letterSize * 1.95);
-                const subY = -clipH / 2 + 7.0 + subGapVal;
+                const subY = -shelfClipH / 2 + 7.0 + subGapVal;
 
                 subGeo.translate(-sbb.min.x - sw / 2 + mainCenterX, -sbb.min.y - sh / 2 + subY, baseDepth + explodeZ * 0.5);
 
@@ -1332,6 +1367,18 @@ export async function rebuildSignCAD() {
             if (shiftPattern.test(mesh.name || '')) {
                 mesh.geometry.translate(userTextOffsetX, userTextOffsetY, offsetZ);
             }
+        });
+    }
+
+    // Solo el subtítulo: en la cuña el ajuste vertical también sigue la rampa
+    if (showSub && (subOffsetX !== 0 || subOffsetY !== 0)) {
+        let subOffsetZ = 0;
+        if (cadState.style === 'wedge') {
+            const angleDeg = parseFloat(document.getElementById('param-wedge-angle')?.value || 12);
+            subOffsetZ = subOffsetY * Math.tan((angleDeg * Math.PI) / 180);
+        }
+        accentsGroup.children.forEach(mesh => {
+            if (/^Subtitulo/.test(mesh.name || '')) mesh.geometry.translate(subOffsetX, subOffsetY, subOffsetZ);
         });
     }
 

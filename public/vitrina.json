@@ -1,6 +1,559 @@
 {
-  "updatedAt": "2026-11-05T20:00:00.000Z",
-  "designs": [],
+  "updatedAt": "2026-11-09T16:47:56.501Z",
+  "designs": [
+    {
+      "id": "cfg_1793901297635",
+      "name": "BC Azul-gris Alto",
+      "timestamp": 1793901297635,
+      "activeWorkspace": "tabletop",
+      "style": "plaque",
+      "text": "LABORATORIO No. 2",
+      "subtext": "100 • PENSAMIENTO CLÁSICO",
+      "showSubtext": false,
+      "font": "playfair",
+      "subFont": "oswald",
+      "subSize": 10,
+      "subGap": 0,
+      "letterSize": 33,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 0,
+      "globalScale": 109,
+      "colorFace": "#ffffff",
+      "colorAccent": "#cbd5e1",
+      "colorBase": "#02064b",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 555,
+        "widthTouched": true,
+        "height": 91,
+        "heightTouched": true,
+        "radius": 5,
+        "split": false,
+        "gap": 22,
+        "offset": 0
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 270,
+        "widthTouched": false,
+        "height": 86,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cfg_1793901177481",
+      "name": "BC Azul - Gris 1 pieza",
+      "timestamp": 1793901177481,
+      "activeWorkspace": "tabletop",
+      "style": "plaque",
+      "text": "LABORATORIO No. 2",
+      "subtext": "100 • PENSAMIENTO CLÁSICO",
+      "showSubtext": false,
+      "font": "playfair",
+      "subFont": "oswald",
+      "subSize": 10,
+      "subGap": 0,
+      "letterSize": 33,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 0,
+      "globalScale": 109,
+      "colorFace": "#ffffff",
+      "colorAccent": "#cbd5e1",
+      "colorBase": "#02064b",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 555,
+        "widthTouched": true,
+        "height": 55,
+        "heightTouched": false,
+        "radius": 5,
+        "split": false,
+        "gap": 22,
+        "offset": 0
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 270,
+        "widthTouched": false,
+        "height": 86,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cfg_1793901124327",
+      "name": "BC Azul - Gris",
+      "timestamp": 1793901124327,
+      "activeWorkspace": "tabletop",
+      "style": "plaque",
+      "text": "LABORATORIO No. 2",
+      "subtext": "100 • PENSAMIENTO CLÁSICO",
+      "showSubtext": false,
+      "font": "playfair",
+      "subFont": "oswald",
+      "subSize": 10,
+      "subGap": 0,
+      "letterSize": 33,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 0,
+      "globalScale": 109,
+      "colorFace": "#ffffff",
+      "colorAccent": "#cbd5e1",
+      "colorBase": "#02064b",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 555,
+        "widthTouched": true,
+        "height": 55,
+        "heightTouched": false,
+        "radius": 5,
+        "split": true,
+        "gap": 22,
+        "offset": 0
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 270,
+        "widthTouched": false,
+        "height": 86,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cfg_1794241369710",
+      "name": "Puestos",
+      "timestamp": 1794241369710,
+      "activeWorkspace": "tabletop",
+      "style": "wedge",
+      "text": "JEFE DE BIBLIOTECA",
+      "subtext": "DIRECCIÓN GENERAL",
+      "showSubtext": false,
+      "font": "cinzel",
+      "subFont": "oswald",
+      "subSize": 10,
+      "subGap": 0,
+      "letterSize": 33,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 0,
+      "globalScale": 100,
+      "colorFace": "#f8f4e8",
+      "colorAccent": "#d49b4b",
+      "colorBase": "#172a45",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 555,
+        "widthTouched": false,
+        "height": 91,
+        "heightTouched": false,
+        "radius": 5,
+        "split": false,
+        "gap": 22,
+        "offset": 0
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 270,
+        "widthTouched": false,
+        "height": 86,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cfg_1794241413785",
+      "name": "Letreros Colgantes",
+      "timestamp": 1794241413785,
+      "activeWorkspace": "tabletop",
+      "style": "ceiling",
+      "text": "SECCIÓN / DE PERIÓDICOS",
+      "subtext": "HEMEROTECA CENTRAL",
+      "showSubtext": false,
+      "font": "arial",
+      "subFont": "oswald",
+      "subSize": 10,
+      "subGap": 0,
+      "letterSize": 33,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 0,
+      "globalScale": 100,
+      "colorFace": "#ffffff",
+      "colorAccent": "#cbd5e1",
+      "colorBase": "#2b2d5c",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 555,
+        "widthTouched": false,
+        "height": 91,
+        "heightTouched": false,
+        "radius": 5,
+        "split": false,
+        "gap": 22,
+        "offset": 0
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 260,
+        "widthTouched": false,
+        "height": 78,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cfg_1794242875496",
+      "name": "anaquel",
+      "timestamp": 1794242875496,
+      "activeWorkspace": "tabletop",
+      "style": "shelf_clip",
+      "text": "Economía",
+      "subtext": "823 • NARRATIVA",
+      "showSubtext": true,
+      "font": "oswald",
+      "subFont": "oswald",
+      "subSize": 8,
+      "subGap": 0,
+      "letterSize": 30,
+      "baseDepth": 4,
+      "letterDepth": 3,
+      "bevel": 0.8,
+      "spacing": 1,
+      "textOffsetX": 1,
+      "textOffsetY": 5,
+      "globalScale": 100,
+      "colorFace": "#f5f5f0",
+      "colorAccent": "#b07d4f",
+      "colorBase": "#1e242b",
+      "colorSubtext": "#b07d4f",
+      "useMultiColor": false,
+      "plaque": {
+        "width": 270,
+        "widthTouched": false,
+        "height": 65,
+        "heightTouched": false,
+        "radius": 5,
+        "split": false,
+        "gap": 22,
+        "offset": 0
+      },
+      "shelf": {
+        "width": 210,
+        "widthTouched": true,
+        "height": 68,
+        "heightTouched": true
+      },
+      "logos": {
+        "mode": "integrated",
+        "left": "none",
+        "right": "biblioteca",
+        "size": 40,
+        "showSeparate": true
+      },
+      "ceiling": {
+        "width": 260,
+        "widthTouched": false,
+        "height": 78,
+        "heightTouched": false,
+        "split": false,
+        "gap": 0,
+        "offset": 0
+      },
+      "wedge": {
+        "angle": 12,
+        "depth": 55
+      },
+      "hanging": {
+        "bracketStyle": "ornate",
+        "bracketColor": "#1e242b",
+        "bracketLengthMm": 220,
+        "chainColor": "#64748b",
+        "chainLengthMm": 35,
+        "rebuildTimer": null,
+        "plates": [
+          {
+            "id": "plate_1",
+            "text": "HISTORIA",
+            "font": "cinzel",
+            "plateColor": "#1e242b",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 210,
+            "height": 52,
+            "depth": 4.5,
+            "hasLowerLoops": true
+          },
+          {
+            "id": "plate_2",
+            "text": "900 • HISTORIA & GEOGRAFÍA",
+            "font": "montserrat",
+            "plateColor": "#172a45",
+            "frameColor": "#d49b4b",
+            "textColor": "#f8f4e8",
+            "width": 185,
+            "height": 38,
+            "depth": 4,
+            "hasLowerLoops": true
+          }
+        ]
+      }
+    }
+  ],
   "work": {
     "assignedHoursPerWeek": 4,
     "estimatedProjectHours": 57,
@@ -75,6 +628,12 @@
         "id": "w_dev_12",
         "date": "2026-11-05",
         "task": "Números alineados en Playfair Display y soporte de mayúsculas/minúsculas en los letreros",
+        "hours": 1
+      },
+      {
+        "id": "w_dev_14",
+        "date": "2026-11-09",
+        "task": "Espaciado correcto de letras con tilde en todas las fuentes y desplazamiento independiente del subtítulo",
         "hours": 1
       }
     ]

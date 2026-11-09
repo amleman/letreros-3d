@@ -166,7 +166,12 @@ Uno de los problemas técnicos resueltos en este proyecto es el manejo de tildes
 * El texto se usa tal como se escribe (sin `toUpperCase`), para poder poner "Laboratorio No. 2".
 * `glyphConverter.js` aplica la variante OpenType `lnum` cuando la fuente la trae (Playfair Display): sus números de estilo antiguo pasan a la altura de las mayúsculas. Baskerville, Cinzel y las demás ya traen números alineados.
 
-### Desplazamiento fino del texto (`param-text-offset-x/y`):
+### Espaciado de letras con tilde:
+`glyphLayoutBounds()` espacia cada letra acentuada (í, ì, ï…) con la caja de su letra base: la tilde puede sobresalir sin empujar a la siguiente. Los rótulos colgantes alinean sus letras a la línea base de la 'H'.
+
+### Desplazamiento fino del texto (`param-text-offset-x/y`) y del subtítulo (`param-sub-offset-x/y`):
+El primero mueve título + subtítulo; el segundo se suma y mueve solo las mallas `Subtitulo*`.
+
 Placa lo integra al centrar sus líneas; el resto de estilos lo aplica al final de `rebuildSignCAD` moviendo las mallas `Letra*` y `Subtitulo*` (en la cuña también sube por la rampa; en Bloques/Monolitos solo mueve las letras dentro de su bloque).
 
 ### Soporte Multilínea Inteligente:

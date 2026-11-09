@@ -33,6 +33,8 @@ export function captureCurrentConfig(name = '') {
 
     const textOffsetX = parseFloat(document.getElementById('param-text-offset-x')?.value || 0);
     const textOffsetY = parseFloat(document.getElementById('param-text-offset-y')?.value || 0);
+    const subOffsetX = parseFloat(document.getElementById('param-sub-offset-x')?.value || 0);
+    const subOffsetY = parseFloat(document.getElementById('param-sub-offset-y')?.value || 0);
     const globalScale = parseFloat(document.getElementById('param-global-scale')?.value || 100);
 
     const colorFace = document.getElementById('color-face')?.value || '#f5f5f0';
@@ -46,6 +48,15 @@ export function captureCurrentConfig(name = '') {
     const psEl = document.getElementById('plaque-split-toggle');
     const pgEl = document.getElementById('param-plaque-gap');
     const poEl = document.getElementById('param-plaque-offset');
+
+    const swEl = document.getElementById('param-shelf-width');
+    const shEl = document.getElementById('param-shelf-height');
+    const shelfConfig = {
+        width: swEl ? parseFloat(swEl.value) : 200,
+        widthTouched: !!swEl?.dataset?.touched,
+        height: shEl ? parseFloat(shEl.value) : 52,
+        heightTouched: !!shEl?.dataset?.touched
+    };
 
     const plaqueConfig = {
         width: pwEl ? parseFloat(pwEl.value) : 260,
@@ -113,6 +124,8 @@ export function captureCurrentConfig(name = '') {
         spacing: spacingVal,
         textOffsetX: textOffsetX,
         textOffsetY: textOffsetY,
+        subOffsetX,
+        subOffsetY,
         globalScale: globalScale,
         colorFace: colorFace,
         colorAccent: colorAccent,
@@ -120,6 +133,7 @@ export function captureCurrentConfig(name = '') {
         colorSubtext: colorSubtext,
         useMultiColor: cadState.useMultiColor,
         plaque: plaqueConfig,
+        shelf: shelfConfig,
         logos: logosConfig,
         ceiling: ceilingConfig,
         wedge: wedgeConfig,
@@ -185,6 +199,12 @@ export function applyConfig(cfg, rebuild = true) {
     const toyEl = document.getElementById('param-text-offset-y');
     if (toyEl && cfg.textOffsetY != null) toyEl.value = cfg.textOffsetY;
 
+    // Configuraciones antiguas no traen desplazamiento propio del subtítulo: vuelve a 0
+    const soxEl = document.getElementById('param-sub-offset-x');
+    if (soxEl) soxEl.value = cfg.subOffsetX ?? 0;
+    const soyEl = document.getElementById('param-sub-offset-y');
+    if (soyEl) soyEl.value = cfg.subOffsetY ?? 0;
+
     // 5. Escala Global
     const gsEl = document.getElementById('param-global-scale');
     if (gsEl && cfg.globalScale != null) gsEl.value = cfg.globalScale;
@@ -207,6 +227,16 @@ export function applyConfig(cfg, rebuild = true) {
     }
 
     // 7. Opciones de Placa Wayfinding
+    // Medidas del Canto de Anaquel (configuraciones antiguas no las traen: quedan en automático)
+    const swEl = document.getElementById('param-shelf-width');
+    const shEl = document.getElementById('param-shelf-height');
+    [[swEl, cfg.shelf?.width, cfg.shelf?.widthTouched], [shEl, cfg.shelf?.height, cfg.shelf?.heightTouched]].forEach(([el, val, touched]) => {
+        if (!el) return;
+        if (val != null) el.value = val;
+        if (touched) el.dataset.touched = 'true';
+        else delete el.dataset.touched;
+    });
+
     if (cfg.plaque) {
         const pwEl = document.getElementById('param-plaque-width');
         if (pwEl && cfg.plaque.width != null) {

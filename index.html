@@ -475,6 +475,7 @@
                                     Centrar (0)
                                 </button>
                             </div>
+                            <span class="text-[10px] font-semibold text-slate-400 block">Todo el texto (título + subtítulo)</span>
                             <div class="grid grid-cols-2 gap-2.5">
                                 <div>
                                     <div class="flex justify-between mb-0.5 text-[10px]">
@@ -489,6 +490,27 @@
                                         <span id="lbl-text-offset-y" class="font-mono text-amber-400 font-bold">0 mm</span>
                                     </div>
                                     <input id="param-text-offset-y" type="range" min="-25" max="25" step="1" value="0" oninput="window.triggerRebuild()" class="w-full" title="Mueve el texto hacia abajo (-) o hacia arriba (+)">
+                                </div>
+                            </div>
+
+                            <!-- Solo el subtítulo (visible cuando el subtítulo está incluido) -->
+                            <div id="sub-offset-row" class="hidden pt-2 border-t border-slate-800 space-y-1.5">
+                                <span class="text-[10px] font-semibold text-slate-400 block">Solo el subtítulo</span>
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <div class="flex justify-between mb-0.5 text-[10px]">
+                                            <span class="text-slate-300">Horizontal (X)</span>
+                                            <span id="lbl-sub-offset-x" class="font-mono text-amber-400 font-bold">0 mm</span>
+                                        </div>
+                                        <input id="param-sub-offset-x" type="range" min="-60" max="60" step="0.5" value="0" oninput="window.triggerRebuild()" class="w-full" title="Mueve solo el subtítulo a la izquierda (-) o a la derecha (+)">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between mb-0.5 text-[10px]">
+                                            <span class="text-slate-300">Vertical (Y)</span>
+                                            <span id="lbl-sub-offset-y" class="font-mono text-amber-400 font-bold">0 mm</span>
+                                        </div>
+                                        <input id="param-sub-offset-y" type="range" min="-20" max="20" step="0.5" value="0" oninput="window.triggerRebuild()" class="w-full" title="Mueve solo el subtítulo hacia abajo (-) o hacia arriba (+)">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -657,6 +679,43 @@
                             <input id="stand-rail-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
                             <span>Riel de soporte</span>
                         </label>
+                    </div>
+
+                    <!-- PANEL CONDICIONAL: PERSONALIZAR PLACA DEL CANTO DE ANAQUEL -->
+                    <div id="shelf-options-panel" class="hidden bg-slate-950/80 border border-emerald-500/40 rounded-xl p-3 space-y-3 mt-2.5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                                <i data-lucide="layout" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                Personalizar Placa de Fondo
+                            </span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">Canto Anaquel</span>
+                        </div>
+
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-slate-300">Ancho de Placa (Fondo)</span>
+                                        <button type="button" onclick="const w = document.getElementById('param-shelf-width'); if(w){ delete w.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-1 rounded transition" title="Restablecer al ancho automático del texto">Auto</button>
+                                    </div>
+                                    <span id="lbl-shelf-width" class="font-mono text-emerald-400 font-bold">Auto</span>
+                                </div>
+                                <input id="param-shelf-width" type="range" min="80" max="600" step="5" value="200" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5 text-[10px]">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-slate-300">Alto de Placa</span>
+                                        <button type="button" onclick="const h = document.getElementById('param-shelf-height'); if(h){ delete h.dataset.touched; window.triggerRebuild(); }" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-emerald-300 px-1 rounded transition" title="Restablecer a la altura automática">Auto</button>
+                                    </div>
+                                    <span id="lbl-shelf-height" class="font-mono text-emerald-400 font-bold">Auto</span>
+                                </div>
+                                <input id="param-shelf-height" type="range" min="32" max="120" step="1" value="52" oninput="this.dataset.touched = 'true'; window.triggerRebuild()" class="w-full">
+                            </div>
+
+                            <p class="text-[10px] text-slate-500 leading-snug">Mínimo automático: lo necesario para el texto y 32 mm de alto para la pinza de la balda de 19 mm.</p>
+                        </div>
                     </div>
 
                     <!-- PANEL CONDICIONAL: PERSONALIZAR CUÑA EJECUTIVA DE ESCRITORIO -->
