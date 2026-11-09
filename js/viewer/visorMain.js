@@ -109,7 +109,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.lucide.createIcons();
     }
 
-    // 6. Escuchar cambios de hash para navegación fluida
+    // 6. Nota de bienvenida para jefatura (una vez por sesión)
+    maybeShowPitchModal();
+
+    // 7. Escuchar cambios de hash para navegación fluida
     window.addEventListener('hashchange', async () => {
         const shared = parseSharedUrlConfig();
         if (shared) {
@@ -150,6 +153,13 @@ function setupGlobalCallbacks() {
     window.toggleTurntable = toggleTurntable;
     window.recenterCamera = recenterCamera;
     window.toggleWorkHoursModal = toggleWorkHoursModal;
+    window.togglePitchModal = togglePitchModal;
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        togglePitchModal(false);
+        toggleWorkHoursModal(false);
+    });
 }
 
 /**
@@ -547,6 +557,53 @@ function renderWorkHoursPanel() {
                 <td class="py-2 text-right font-bold text-amber-700 whitespace-nowrap">${esc(e.hours)} h</td>
             </tr>`).join('') || `<tr><td colspan="3" class="py-3 text-center text-slate-400 italic">Sin registros detallados.</td></tr>`;
     }
+}
+
+/**
+ * Pop-up de bienvenida para jefatura: vende la mejora y pide más horas (una vez por sesión)
+ */
+const PITCH_SEEN_KEY = 'bibliosign_pitch_seen';
+
+function renderPitchModal() {
+    const work = vitrinaData?.work;
+    const logged = Math.round(totalLoggedHours(work) * 10) / 10;
+    const estimated = parseFloat(work?.estimatedProjectHours) || 0;
+    const assigned = parseFloat(work?.assignedHoursPerWeek) || 0;
+    if (!work || (logged === 0 && estimated === 0)) return false;
+
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    setText('pitch-logged', logged > 0 ? `${logged} h` : '—');
+    setText('pitch-assigned', assigned > 0 ? `${assigned} h` : '—');
+    if (assigned > 0 && estimated > 0) {
+        const weeks = Math.ceil(estimated / assigned);
+        setText('pitch-weeks', `${weeks} sem.`);
+        setText('pitch-weeks-label', `(~${Math.round(weeks / 4.3 * 10) / 10} meses) para producirlos a este ritmo`);
+    }
+    return true;
+}
+
+function togglePitchModal(show) {
+    const modal = document.getElementById('pitch-modal');
+    if (!modal) return;
+    const open = typeof show === 'boolean' ? show : modal.classList.contains('hidden');
+    modal.classList.toggle('hidden', !open);
+    modal.classList.toggle('flex', open);
+    if (open && window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    if (!open) {
+        try { sessionStorage.setItem(PITCH_SEEN_KEY, '1'); } catch (e) { /* sin almacenamiento: se mostrará otra vez */ }
+    }
+}
+
+function maybeShowPitchModal() {
+    if (!renderPitchModal()) return;
+    let seen = false;
+    try { seen = sessionStorage.getItem(PITCH_SEEN_KEY) === '1'; } catch (e) { /* ignorar */ }
+    if (seen) return;
+    // Pequeña pausa para que primero se vea el letrero cargando detrás
+    setTimeout(() => togglePitchModal(true), 1200);
 }
 
 function toggleWorkHoursModal(show) {

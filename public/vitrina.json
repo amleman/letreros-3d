@@ -635,6 +635,24 @@
         "date": "2026-11-09",
         "task": "Espaciado correcto de letras con tilde en todas las fuentes y desplazamiento independiente del subtítulo",
         "hours": 1
+      },
+      {
+        "id": "w_dev_15",
+        "date": "2026-11-09",
+        "task": "Nota de bienvenida en el visor para jefatura (propuesta de valor y solicitud de horas)",
+        "hours": 0.5
+      },
+      {
+        "id": "w_dev_16",
+        "date": "2026-11-09",
+        "task": "Animación de ondas y entrada para la nota de bienvenida del visor",
+        "hours": 0.5
+      },
+      {
+        "id": "w_dev_17",
+        "date": "2026-11-09",
+        "task": "Rediseño de la nota de bienvenida: orden por secciones y recomendación destacada",
+        "hours": 0.5
       }
     ]
   }

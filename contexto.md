@@ -225,11 +225,9 @@ Diseñado para directores, jefes de departamento y evaluadores externos que no d
    * `Cenital`: Vista superior plana.
    * `Giro 360° (Turntable)`: Rotación continua suave automática (`controls.autoRotate = true`).
    * `Alternar Entorno`: Cambia entre un estante de biblioteca de madera cálida y la cama cuadriculada de 25 cm².
-2. **Catálogo Curado:** Lista propuestas institucionales listas para producción (`js/config/catalog.js`) y permite filtrar por *Placas*, *Anaqueles*, *Colgantes* y *Guardadas*.
-3. **Ficha Técnica Ejecutiva:** Muestra medidas 1:1 calculadas por `THREE.Box3` en tiempo real (mm), material sugerido (PLA/PETG), tipo de montaje y muestras de color en código HEX.
-4. **Descargas Directas:**
-   * **Plantilla de Papel 1:1 (PNG):** Renderiza una proyección frontal en alta resolución (~300 DPI) con marcas de corte de tijera y regla de calibración de 50 mm para probar el tamaño impreso en papel en el estante físico antes de mandar a imprimir en 3D.
-   * **Multicolor .3MF:** Archivo listo para mandar a imprimir en Bambu Studio.
+2. **Lista compacta de propuestas:** solo los diseños marcados con ★ en `public/vitrina.json` (más los guardados en localStorage cuando no es modo vitrina). Sin catálogo de ejemplos ni filtros.
+3. **Ficha Técnica Ejecutiva:** Muestra medidas 1:1 calculadas por `THREE.Box3` en tiempo real (mm), material sugerido (PLA/PETG), tipo de montaje y muestras de color en código HEX. Sin botones de descarga (se quitaron a propósito).
+4. **Nota de bienvenida (`#pitch-modal`):** pop-up que aparece 1.2 s después de cargar, una vez por sesión (`sessionStorage` `bibliosign_pitch_seen`). Vende la mejora a jefatura (beneficio → esfuerzo → cifras) y cierra con la recomendación destacada en verde con destello (`.pitch-ask`): "Ampliar las horas de mi contrato"; las cifras (horas invertidas, horas/semana, semanas estimadas) salen de `work` en `vitrina.json` (`renderPitchModal()` en `visorMain.js`). "Ver desglose de horas" abre el modal de horas; `Escape` cierra ambos. Animación: `.pitch-ripple` (3 ondas verdes que crecen con `inset` hasta -48px, desfasadas 0.9 s), brillo pulsante en `.pitch-card` y entrada con rebote; se desactiva con `prefers-reduced-motion`.
 
 ### Contrato DOM Oculto en `visor.html`:
 Para evitar duplicar miles de líneas de matemáticas CAD de `signGenerator.js`, `visor.html` contiene un contenedor invisible `<div id="visor-cad-hidden-inputs" style="display:none">` con los mismos IDs que el diseñador principal (`sign-text`, `param-font`, `param-letter-size`, `color-face`, etc.). `applyConfig(proposal, true)` actualiza estos campos y reutiliza el 100% del motor CAD nativo.
