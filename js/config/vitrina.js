@@ -9,7 +9,8 @@
  * En Netlify el visor solo lee ./vitrina.json como archivo estático.
  */
 
-export const IS_VITRINA_BUILD = import.meta.env.MODE === 'vitrina';
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+export const IS_VITRINA_BUILD = env.MODE === 'vitrina';
 
 const DEV_API = '/api/vitrina';
 
@@ -43,7 +44,7 @@ function normalize(data) {
  * Lee la vitrina. En desarrollo usa la API local (siempre fresca); si no existe, el archivo estático.
  */
 export async function loadVitrina() {
-    const sources = import.meta.env.DEV ? [DEV_API, './vitrina.json'] : ['./vitrina.json'];
+    const sources = env.DEV ? [DEV_API, './vitrina.json'] : ['./vitrina.json'];
     for (const url of sources) {
         try {
             const res = await fetch(url, { cache: 'no-store' });

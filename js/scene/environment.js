@@ -175,9 +175,10 @@ export function buildEnvironment(scene) {
         shelfMesh = null;
     }
 
-    // Rótulo colgante: se exhibe sobre el lateral del anaquel (hangingMountGroup), sin cama ni estante
+    // Rótulo colgante: si está en vista cama 25 cm, mostramos la cama PEI; si está ensamblado, se oculta
     if (cadState.activeWorkspace === 'hanging') {
-        buildPlateGroup.visible = false;
+        const isBed = cadState.hanging && cadState.hanging.viewMode === 'bed';
+        buildPlateGroup.visible = isBed;
         syncExtraBeds();
         return;
     }

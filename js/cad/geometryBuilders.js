@@ -962,30 +962,78 @@ export function createOrnateBracketGeometry({
     postWidthMm = 12,
     thicknessMm = 5.5,
     eyeletXs = [60, 160],
-    braceRadiusMm = 40
+    braceRadiusMm = 40,
+    mountType = 'adhesive'
 } = {}) {
     // Sistema de coordenadas: cara derecha del montante en X = 0, cara superior del brazo en Y = 0.
     // Todas las piezas se solapan ~1 mm para que el sólido impreso salga en una sola pieza.
     const armH = armHeightMm;
     const armL = armLengthMm;
     const yc = -armH / 2;
+    const bevel = { bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 };
+    const geos = [];
 
-    // Montante vertical (se atornilla al lateral del anaquel) con 2 perforaciones avellanables
-    const post = new THREE.Shape();
-    post.moveTo(-postWidthMm, -postHeightMm);
-    post.lineTo(0, -postHeightMm);
-    post.lineTo(0, 8);
-    post.lineTo(-postWidthMm, 8);
-    post.closePath();
-    [-postHeightMm + 14, -armH - 22].forEach(hy => {
-        const hole = new THREE.Path();
-        hole.absarc(-postWidthMm / 2, hy, 2.2, 0, Math.PI * 2, true);
-        post.holes.push(hole);
-    });
+    if (mountType === 'top_hook') {
+        // GANCHO DE CORONACIÓN SUPERIOR (Sin taladrar: abraza la moldura superior de la cabecera)
+        const hookW = 16;
+        const hookDepth = 26; // Profundidad de la moldura superior de la cabecera de madera
+        const hookDrop = 18;  // Pestaña posterior que baja para evitar que se deslice hacia adelante
+        const hookShape = new THREE.Shape();
+        hookShape.moveTo(-hookW, -postHeightMm);
+        hookShape.lineTo(0, -postHeightMm);
+        hookShape.lineTo(0, 12);
+        hookShape.lineTo(-hookDepth - hookW, 12);
+        hookShape.lineTo(-hookDepth - hookW, 12 - hookDrop);
+        hookShape.lineTo(-hookDepth - hookW + 6, 12 - hookDrop);
+        hookShape.lineTo(-hookDepth - hookW + 6, 12 - 6);
+        hookShape.lineTo(-hookW, 12 - 6);
+        hookShape.lineTo(-hookW, -postHeightMm);
+        hookShape.closePath();
+        geos.push(new THREE.ExtrudeGeometry(hookShape, { depth: thicknessMm, ...bevel }));
+    } else if (mountType === 'adhesive') {
+        // ZAPATA PLANA DE GRAN SUPERFICIE PARA CINTA DOBLE CARA / 3M COMMAND (SIN PERFORAR)
+        const flangeW = 38;
+        const flangeH = Math.max(postHeightMm, 120);
+        const flange = new THREE.Shape();
+        flange.moveTo(-flangeW + 5, -flangeH);
+        flange.lineTo(-5, -flangeH);
+        flange.absarc(-5, -flangeH + 5, 5, -Math.PI / 2, 0, false);
+        flange.lineTo(0, 8);
+        flange.lineTo(-flangeW, 8);
+        flange.lineTo(-flangeW, -flangeH + 5);
+        flange.absarc(-flangeW + 5, -flangeH + 5, 5, Math.PI, Math.PI * 1.5, false);
+        flange.closePath();
 
-    // Remate superior redondeado del montante
-    const finial = new THREE.Shape();
-    finial.absarc(-postWidthMm / 2, 8, postWidthMm * 0.62, 0, Math.PI * 2, false);
+        // Muesca inferior semicircular para retirar la lengüeta elástica 3M Command hacia abajo limpiamente
+        const pullTabNotch = new THREE.Path();
+        pullTabNotch.absarc(-flangeW / 2, -flangeH, 7, 0, Math.PI, false);
+        flange.holes.push(pullTabNotch);
+
+        // Remate superior redondeado institucional
+        const finial = new THREE.Shape();
+        finial.absarc(-flangeW / 2, 8, flangeW / 2, 0, Math.PI, false);
+
+        geos.push(new THREE.ExtrudeGeometry(flange, { depth: thicknessMm, ...bevel }));
+        geos.push(new THREE.ExtrudeGeometry(finial, { depth: thicknessMm, ...bevel }));
+    } else {
+        // ATORNILLADO TRADICIONAL
+        const post = new THREE.Shape();
+        post.moveTo(-postWidthMm, -postHeightMm);
+        post.lineTo(0, -postHeightMm);
+        post.lineTo(0, 8);
+        post.lineTo(-postWidthMm, 8);
+        post.closePath();
+        [-postHeightMm + 14, -armH - 22].forEach(hy => {
+            const hole = new THREE.Path();
+            hole.absarc(-postWidthMm / 2, hy, 2.2, 0, Math.PI * 2, true);
+            post.holes.push(hole);
+        });
+        const finial = new THREE.Shape();
+        finial.absarc(-postWidthMm / 2, 8, postWidthMm * 0.62, 0, Math.PI * 2, false);
+
+        geos.push(new THREE.ExtrudeGeometry(post, { depth: thicknessMm, ...bevel }));
+        geos.push(new THREE.ExtrudeGeometry(finial, { depth: thicknessMm, ...bevel }));
+    }
 
     // Brazo horizontal con punta de flecha clásica centrada en su eje
     const arm = new THREE.Shape();
@@ -1014,15 +1062,10 @@ export function createOrnateBracketGeometry({
     // Ojales bajo el brazo, alineados con las argollas de la placa
     const eyelets = eyeletXs.map(x => createEyeletShape(x, -armH + 1, 6, 3.2));
 
-    const bevel = { bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 };
-    const geos = [
-        new THREE.ExtrudeGeometry(post, { depth: thicknessMm, ...bevel }),
-        new THREE.ExtrudeGeometry(finial, { depth: thicknessMm, ...bevel }),
-        new THREE.ExtrudeGeometry(arm, { depth: thicknessMm, ...bevel }),
-        new THREE.ExtrudeGeometry(braceOuter, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }),
-        new THREE.ExtrudeGeometry(braceInner, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }),
-        ...eyelets.map(e => new THREE.ExtrudeGeometry(e, { depth: thicknessMm, bevelEnabled: false }))
-    ];
+    geos.push(new THREE.ExtrudeGeometry(arm, { depth: thicknessMm, ...bevel }));
+    geos.push(new THREE.ExtrudeGeometry(braceOuter, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }));
+    geos.push(new THREE.ExtrudeGeometry(braceInner, { depth: thicknessMm, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 2 }));
+    eyelets.forEach(e => geos.push(new THREE.ExtrudeGeometry(e, { depth: thicknessMm, bevelEnabled: false })));
 
     return mergeGeometriesManually(geos);
 }
@@ -1040,7 +1083,7 @@ function createEyeletShape(cx, topY, outerR = 6, innerR = 3.2) {
  * PLACA COLGANTE CON MARCO INSET Y ARGOLLAS SUPERIORES E INFERIORES MODULARES (Imagen 2)
  * `loopSpacing` debe ser igual en todas las placas para que las cadenas caigan verticales.
  */
-export function createHangingPlateMesh(width, height, depth, hasLowerLoops = true, matBase, matFrame, loopSpacing = Math.min(100, width * 0.55)) {
+export function createHangingPlateMesh(width, height, depth, hasLowerLoops = true, matBase, matFrame, loopSpacing = Math.min(100, width * 0.55), isSlotted = true) {
     const group = { baseMesh: null, frameMesh: null, totalHeight: height };
     const hw = width / 2;
     const hh = height / 2;
@@ -1102,22 +1145,35 @@ export function createHangingPlateMesh(width, height, depth, hasLowerLoops = tru
     const frameHole = new THREE.Path();
     const ifhw = fhw - frameT;
     const ifhh = fhh - frameT;
-    frameHole.moveTo(-ifhw + 2, -ifhh);
-    frameHole.lineTo(ifhw - 2, -ifhh);
-    frameHole.absarc(ifhw - 2, -ifhh + 2, 2, -Math.PI / 2, 0, false);
-    frameHole.lineTo(ifhw, ifhh - 2);
-    frameHole.absarc(ifhw - 2, ifhh - 2, 2, 0, Math.PI / 2, false);
-    frameHole.lineTo(-ifhw + 2, ifhh);
-    frameHole.absarc(-ifhw + 2, ifhh - 2, 2, Math.PI / 2, Math.PI, false);
-    frameHole.lineTo(-ifhw, -ifhh + 2);
-    frameHole.absarc(-ifhw + 2, -ifhh + 2, 2, Math.PI, Math.PI * 1.5, false);
-    frameHole.closePath();
+
+    if (isSlotted) {
+        // Rieles superior e inferior con boca de entrada lateral derecha para insertar la tablilla
+        frameHole.moveTo(-ifhw + 2, -ifhh);
+        frameHole.lineTo(fhw + 1, -ifhh); // Abierto hacia la derecha para deslizar
+        frameHole.lineTo(fhw + 1, ifhh);
+        frameHole.lineTo(-ifhw + 2, ifhh);
+        frameHole.absarc(-ifhw + 2, ifhh - 2, 2, Math.PI / 2, Math.PI, false);
+        frameHole.lineTo(-ifhw, -ifhh + 2);
+        frameHole.absarc(-ifhw + 2, -ifhh + 2, 2, Math.PI, Math.PI * 1.5, false);
+        frameHole.closePath();
+    } else {
+        frameHole.moveTo(-ifhw + 2, -ifhh);
+        frameHole.lineTo(ifhw - 2, -ifhh);
+        frameHole.absarc(ifhw - 2, -ifhh + 2, 2, -Math.PI / 2, 0, false);
+        frameHole.lineTo(ifhw, ifhh - 2);
+        frameHole.absarc(ifhw - 2, ifhh - 2, 2, 0, Math.PI / 2, false);
+        frameHole.lineTo(-ifhw + 2, ifhh);
+        frameHole.absarc(-ifhw + 2, ifhh - 2, 2, Math.PI / 2, Math.PI, false);
+        frameHole.lineTo(-ifhw, -ifhh + 2);
+        frameHole.absarc(-ifhw + 2, -ifhh + 2, 2, Math.PI, Math.PI * 1.5, false);
+        frameHole.closePath();
+    }
     frameOuter.holes.push(frameHole);
 
     const frameGeo = new THREE.ExtrudeGeometry(frameOuter, { depth: 1.4, bevelEnabled: true, bevelThickness: 0.4, bevelSize: 0.3, bevelSegments: 1 });
     frameGeo.translate(0, 0, depth);
     group.frameMesh = new THREE.Mesh(frameGeo, matFrame);
-    group.frameMesh.name = "Marco_Placa_Relieve";
+    group.frameMesh.name = isSlotted ? "Marco_Riel_Deslizable" : "Marco_Placa_Relieve";
 
     return group;
 }

@@ -1226,11 +1226,193 @@
                 </p>
             </div>
 
+            <!-- 1. MODO DE VISUALIZACIÓN Y ENTORNO 3D -->
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-3.5 space-y-3 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                    <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <i data-lucide="eye" class="w-3.5 h-3.5"></i> Modo de Visualización 3D
+                    </label>
+                    <span id="hanging-bed-badge" class="text-[10px] bg-slate-800 text-emerald-300 font-mono px-2 py-0.5 rounded border border-slate-700">Cama 250×250 mm</span>
+                </div>
+
+                <!-- Botones Switch de Modo -->
+                <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+                    <button type="button" id="btn-hanging-view-assembled" onclick="window.setHangingViewMode('assembled')"
+                        class="text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 bg-emerald-500 text-slate-950 shadow">
+                        <i data-lucide="library" class="w-3.5 h-3.5"></i>
+                        <span>En Anaquel</span>
+                    </button>
+                    <button type="button" id="btn-hanging-view-bed" onclick="window.setHangingViewMode('bed')"
+                        class="text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800/60">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                        <span>Cama Impresión</span>
+                    </button>
+                </div>
+
+                <!-- Sub-controles exclusivos de la Cama de Impresión -->
+                <div id="hanging-bed-controls" class="hidden space-y-2.5 pt-1 border-t border-slate-700/50">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-semibold text-slate-300">Despiece en Cama:</span>
+                            <span class="text-[9px] text-emerald-400 font-mono">Orientadas en Z=0</span>
+                        </div>
+                        <div id="hanging-bed-plate-selector" class="grid grid-cols-2 gap-1.5 text-[11px]">
+                            <button type="button" onclick="window.setHangingBedPlateView('all')" id="btn-bed-all"
+                                class="bg-emerald-600 text-white font-bold py-1.5 px-2 rounded-lg text-center transition border border-emerald-500/50">
+                                Todas (3 en Fila)
+                            </button>
+                            <button type="button" onclick="window.setHangingBedPlateView('bracket')" id="btn-bed-bracket"
+                                class="bg-slate-900 text-slate-300 hover:bg-slate-800 py-1.5 px-2 rounded-lg text-center transition border border-slate-700">
+                                1. Brazo Soporte
+                            </button>
+                            <button type="button" onclick="window.setHangingBedPlateView('plates')" id="btn-bed-plates"
+                                class="bg-slate-900 text-slate-300 hover:bg-slate-800 py-1.5 px-2 rounded-lg text-center transition border border-slate-700">
+                                2. Placas
+                            </button>
+                            <button type="button" onclick="window.setHangingBedPlateView('chains')" id="btn-bed-chains"
+                                class="bg-slate-900 text-slate-300 hover:bg-slate-800 py-1.5 px-2 rounded-lg text-center transition border border-slate-700">
+                                3. Eslabones
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 flex items-start gap-2">
+                        <input type="checkbox" id="chk-bracket-diagonal" onchange="window.toggleBracketAngle45(this.checked)"
+                            class="mt-0.5 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-0 cursor-pointer">
+                        <label for="chk-bracket-diagonal" class="text-[11px] text-slate-300 cursor-pointer select-none">
+                            <span class="font-bold text-white block">Girar brazo 45° en diagonal</span>
+                            Aprovecha la diagonal de 353 mm de la cama para que soportes largos de hasta 340 mm quepan sin exceder 250×250 mm.
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. FIJACIÓN AL MUEBLE: CERO DAÑOS / NO INVASIVO -->
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-3.5 space-y-3 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                    <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Fijación al Anaquel (Cero Daños)
+                    </label>
+                    <span class="text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full">Sin Dañar Madera</span>
+                </div>
+
+                <div class="space-y-2">
+                    <!-- Opción 1: Zapata Adhesiva 3M Command (Recomendado) -->
+                    <button type="button" onclick="window.setHangingMountType('adhesive')" id="btn-mount-adhesive"
+                        class="w-full text-left p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition flex items-start gap-2.5">
+                        <div class="w-5 h-5 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Zapata Adhesiva 3M Command</span>
+                                <span class="text-[9px] bg-emerald-500 text-slate-950 font-bold px-1.5 py-0.2 rounded">Recomendado</span>
+                            </div>
+                            <p class="text-[10px] text-slate-300 mt-0.5">
+                                Base ancha de 38 mm con ranura inferior para lengüeta elástica. Cero perforaciones a la madera y despegue limpio sin dejar residuos.
+                            </p>
+                        </div>
+                    </button>
+
+                    <!-- Opción 2: Gancho de Coronación Superior (Gravedad) -->
+                    <button type="button" onclick="window.setHangingMountType('top_hook')" id="btn-mount-top_hook"
+                        class="w-full text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition flex items-start gap-2.5">
+                        <div class="w-5 h-5 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                            <i data-lucide="anchor" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-xs font-bold text-slate-200 block">Gancho de Coronación Superior</span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">
+                                Se engancha por gravedad sobre la moldura superior del panel del anaquel. Sin pegamento ni tornillos.
+                            </p>
+                        </div>
+                    </button>
+
+                    <!-- Opción 3: Atornillado Tradicional -->
+                    <button type="button" onclick="window.setHangingMountType('screws')" id="btn-mount-screws"
+                        class="w-full text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition flex items-start gap-2.5">
+                        <div class="w-5 h-5 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-xs font-bold text-slate-200 block">Atornillado Tradicional</span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">
+                                Dos orificios avellanados para fijación directa con tornillos de madera (requiere perforar).
+                            </p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. SISTEMA MODULAR DE PLACAS (Tipo Gasolinera vs Monolítica) -->
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-3.5 space-y-3 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                    <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Sistema Modular de Placas
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Slotted / Deslizable -->
+                    <button type="button" onclick="window.setHangingPlateStyle('slotted')" id="btn-style-slotted"
+                        class="text-left p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            <span class="text-xs font-bold text-white">Tablilla Deslizable</span>
+                        </div>
+                        <p class="text-[10px] text-slate-300 leading-tight">
+                            Tipo gasolinera: boca lateral para cambiar textos deslizando tablillas sin descolgar el rótulo.
+                        </p>
+                    </button>
+
+                    <!-- Fixed / Monolítica -->
+                    <button type="button" onclick="window.setHangingPlateStyle('fixed')" id="btn-style-fixed"
+                        class="text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i data-lucide="square" class="w-3.5 h-3.5 text-slate-400"></i>
+                            <span class="text-xs font-bold text-slate-300">Placa Fija</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 leading-tight">
+                            Marco y fondo fusionados en una sola pieza monolítica no intercambiable.
+                        </p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Presets Rápidos de Anaquel -->
+            <div class="bg-slate-850 border border-emerald-500/30 rounded-2xl p-3 space-y-2">
+                <span class="text-[10px] font-semibold text-emerald-400 block">Presets Rápidos de Anaquel:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" onclick="window.setHangingQuickPreset('guatemala')"
+                        class="text-[11px] bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40 px-2.5 py-1 rounded-lg transition font-semibold">
+                        SECCIÓN GUATEMALA
+                    </button>
+                    <button type="button" onclick="window.setHangingQuickPreset('folletos')"
+                        class="text-[11px] bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40 px-2.5 py-1 rounded-lg transition font-semibold">
+                        FOLLETOS & REVISTAS
+                    </button>
+                    <button type="button" onclick="window.setHangingQuickPreset('literatura')"
+                        class="text-[11px] bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40 px-2.5 py-1 rounded-lg transition font-semibold">
+                        LITERATURA 800
+                    </button>
+                </div>
+            </div>
+
             <!-- Configuración del Soporte / Brazo de Hierro Forjado -->
             <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-3.5 space-y-3">
                 <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                     <i data-lucide="shield" class="w-3.5 h-3.5"></i> Soporte de Anaquel (Hierro Forjado)
                 </label>
+
+                <div>
+                    <div class="flex justify-between mb-0.5 text-[10px]">
+                        <span class="text-slate-300">Longitud del Brazo</span>
+                        <span id="lbl-hanging-bracket-len" class="font-mono text-emerald-400 font-bold">200 mm</span>
+                    </div>
+                    <input type="range" min="160" max="300" step="10" value="200" id="param-hanging-bracket-len"
+                        oninput="cadState.hanging.bracketLengthMm = parseFloat(this.value); document.getElementById('lbl-hanging-bracket-len').textContent = this.value + ' mm'; window.triggerHangingRebuild();"
+                        class="w-full">
+                </div>
 
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <div>

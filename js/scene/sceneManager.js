@@ -145,10 +145,18 @@ export function onWindowResize() {
 export function resetCameraView() {
     if (!camera || !controls) return;
     if (cadState.activeWorkspace === 'hanging') {
-        const { center, size } = getActiveModelBounds();
-        const dist = Math.max(480, Math.max(size.x, size.z) * 2.3);
-        camera.position.set(center.x + dist * 0.28, center.y - dist, center.z + dist * 0.12);
-        controls.target.copy(center);
+        const isBed = cadState.hanging && cadState.hanging.viewMode === 'bed';
+        if (isBed) {
+            const count = (cadState.hanging && cadState.hanging.bedPlateView === 'all') ? 3 : 1;
+            const dist = count > 1 ? 680 : 360;
+            camera.position.set(0, -dist * 0.85, dist * 0.78);
+            controls.target.set(0, 0, 8);
+        } else {
+            const { center, size } = getActiveModelBounds();
+            const dist = Math.max(480, Math.max(size.x, size.z) * 2.3);
+            camera.position.set(center.x + dist * 0.28, center.y - dist, center.z + dist * 0.12);
+            controls.target.copy(center);
+        }
     } else {
         const box = new THREE.Box3().setFromObject(printableRoot);
         const size = new THREE.Vector3();

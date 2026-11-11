@@ -336,7 +336,11 @@ export function toggleShelfContext() {
         btn.classList.toggle('text-amber-300', cadState.showShelf);
         btn.classList.toggle('text-slate-400', !cadState.showShelf);
     }
-    refreshEnvironment();
+    if (cadState.activeWorkspace === 'hanging') {
+        setHangingViewMode(cadState.showShelf ? 'assembled' : 'bed');
+    } else {
+        refreshEnvironment();
+    }
 }
 
 /**
@@ -661,6 +665,230 @@ export function triggerHangingRebuild() {
     }, 45);
 }
 
+/**
+ * Cambia el modo de visualización del letrero colgante:
+ * 'assembled' = En anaquel vertical de madera
+ * 'bed' = Despiezado plano sobre la cama de impresión de 25 cm
+ */
+export function setHangingViewMode(mode) {
+    cadState.hanging.viewMode = mode;
+    cadState.showShelf = (mode === 'assembled');
+
+    const btnAssembled = document.getElementById('btn-hanging-view-assembled');
+    const btnBed = document.getElementById('btn-hanging-view-bed');
+    const bedControls = document.getElementById('hanging-bed-controls');
+    const btnShelf = document.getElementById('btn-shelf-toggle');
+
+    if (btnAssembled && btnBed) {
+        if (mode === 'assembled') {
+            btnAssembled.className = "text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 bg-emerald-500 text-slate-950 shadow";
+            btnBed.className = "text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800/60";
+            if (bedControls) bedControls.classList.add('hidden');
+        } else {
+            btnBed.className = "text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 bg-emerald-500 text-slate-950 shadow";
+            btnAssembled.className = "text-xs font-bold py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800/60";
+            if (bedControls) bedControls.classList.remove('hidden');
+        }
+    }
+
+    if (btnShelf) {
+        btnShelf.classList.toggle('text-amber-300', mode === 'assembled');
+        btnShelf.classList.toggle('text-slate-400', mode !== 'assembled');
+    }
+
+    refreshEnvironment();
+    rebuildHangingSignCAD();
+    resetCameraView();
+}
+
+/**
+ * Selecciona qué parte se muestra en la cama de impresión:
+ * 'all' (3 camas en fila), 'bracket' (brazo), 'plates' (placas), 'chains' (eslabones)
+ */
+export function setHangingBedPlateView(plateView) {
+    cadState.hanging.bedPlateView = plateView;
+
+    ['all', 'bracket', 'plates', 'chains'].forEach(id => {
+        const btn = document.getElementById(`btn-bed-${id}`);
+        if (!btn) return;
+        if (id === plateView) {
+            btn.className = "bg-emerald-600 text-white font-bold py-1.5 px-2 rounded-lg text-center transition border border-emerald-500/50";
+        } else {
+            btn.className = "bg-slate-900 text-slate-300 hover:bg-slate-800 py-1.5 px-2 rounded-lg text-center transition border border-slate-700";
+        }
+    });
+
+    rebuildHangingSignCAD();
+    resetCameraView();
+}
+
+/**
+ * Gira el brazo 45° en diagonal para maximizar el uso de la cama de 25 cm
+ */
+export function toggleBracketAngle45(checked) {
+    cadState.hanging.bracketAngle45 = !!checked;
+    rebuildHangingSignCAD();
+}
+
+/**
+ * Define el tipo de anclaje al mueble:
+ * 'adhesive' (Zapata 3M Command sin hoyos)
+ * 'top_hook' (Gancho de coronación superior por gravedad)
+ * 'screws' (Atornillado tradicional con orificios)
+ */
+export function setHangingMountType(type) {
+    cadState.hanging.mountType = type;
+
+    ['adhesive', 'top_hook', 'screws'].forEach(t => {
+        const btn = document.getElementById(`btn-mount-${t}`);
+        if (!btn) return;
+        if (t === type) {
+            btn.className = "w-full text-left p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition flex items-start gap-2.5";
+        } else {
+            btn.className = "w-full text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition flex items-start gap-2.5";
+        }
+    });
+
+    rebuildHangingSignCAD();
+    const names = {
+        adhesive: 'Zapata Adhesiva 3M Command (Sin Dañar Madera)',
+        top_hook: 'Gancho de Coronación Superior (Gravedad)',
+        screws: 'Atornillado Tradicional'
+    };
+    showToast('Soporte de Fijación Actualizado', names[type] || type);
+}
+
+/**
+ * Define el estilo de las placas:
+ * 'slotted' (Tablillas deslizables tipo gasolinera)
+ * 'fixed' (Placa sólida fija)
+ */
+export function setHangingPlateStyle(style) {
+    cadState.hanging.plateStyle = style;
+
+    const btnSlotted = document.getElementById('btn-style-slotted');
+    const btnFixed = document.getElementById('btn-style-fixed');
+
+    if (btnSlotted && btnFixed) {
+        if (style === 'slotted') {
+            btnSlotted.className = "text-left p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition";
+            btnFixed.className = "text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition";
+        } else {
+            btnFixed.className = "text-left p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition";
+            btnSlotted.className = "text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition";
+        }
+    }
+
+    rebuildHangingSignCAD();
+    showToast(
+        style === 'slotted' ? 'Sistema de Tablilla Deslizable' : 'Placa Fija Monolítica',
+        style === 'slotted' ? 'Textos intercambiables por la ranura lateral' : 'Diseño estándar no intercambiable'
+    );
+}
+
+/**
+ * Aplica presets de anaquel basados en las secciones reales de la biblioteca
+ */
+export function setHangingQuickPreset(presetType) {
+    if (presetType === 'guatemala') {
+        cadState.hanging.plates = [
+            {
+                id: 'plate_1',
+                text: 'SECCIÓN GUATEMALA',
+                font: 'montserrat',
+                plateColor: '#1e242b',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 220,
+                height: 52,
+                depth: 4.5,
+                hasLowerLoops: true
+            },
+            {
+                id: 'plate_2',
+                text: 'S.G. 972.8101 AL 972.82',
+                font: 'arial',
+                plateColor: '#172a45',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 200,
+                height: 38,
+                depth: 4.0,
+                hasLowerLoops: true
+            },
+            {
+                id: 'plate_3',
+                text: 'HISTORIA DE GUATEMALA',
+                font: 'montserrat',
+                plateColor: '#2b1a1a',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 190,
+                height: 36,
+                depth: 4.0,
+                hasLowerLoops: false
+            }
+        ];
+    } else if (presetType === 'folletos') {
+        cadState.hanging.plates = [
+            {
+                id: 'plate_1',
+                text: 'FOLLETOS & REVISTAS',
+                font: 'montserrat',
+                plateColor: '#1e242b',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 210,
+                height: 52,
+                depth: 4.5,
+                hasLowerLoops: true
+            },
+            {
+                id: 'plate_2',
+                text: 'S.G. F 001 AL F 1263',
+                font: 'arial',
+                plateColor: '#172a45',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 190,
+                height: 38,
+                depth: 4.0,
+                hasLowerLoops: false
+            }
+        ];
+    } else if (presetType === 'literatura') {
+        cadState.hanging.plates = [
+            {
+                id: 'plate_1',
+                text: 'LITERATURA',
+                font: 'cinzel',
+                plateColor: '#1e242b',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 200,
+                height: 50,
+                depth: 4.5,
+                hasLowerLoops: true
+            },
+            {
+                id: 'plate_2',
+                text: '800 • CLÁSICOS & NARRATIVA',
+                font: 'montserrat',
+                plateColor: '#14342b',
+                frameColor: '#d49b4b',
+                textColor: '#f8f4e8',
+                width: 195,
+                height: 38,
+                depth: 4.0,
+                hasLowerLoops: false
+            }
+        ];
+    }
+    renderHangingPlatesList();
+    triggerHangingRebuild();
+    showToast('Preset Aplicado', `Rótulo de Anaquel: ${presetType.toUpperCase()}`);
+}
+
 // Preset Rápido
 export function setQuickPreset(text, subtext, styleName, showSub, fontKey, paletteKey = null) {
     const textInput = document.getElementById('sign-text');
@@ -874,6 +1102,12 @@ export function exposeGlobalMethods() {
     window.triggerHangingRebuild = triggerHangingRebuild;
     window.exportHanging3MF = exportHanging3MF;
     window.exportHangingSTL = exportHangingSTL;
+    window.setHangingViewMode = setHangingViewMode;
+    window.setHangingBedPlateView = setHangingBedPlateView;
+    window.toggleBracketAngle45 = toggleBracketAngle45;
+    window.setHangingMountType = setHangingMountType;
+    window.setHangingPlateStyle = setHangingPlateStyle;
+    window.setHangingQuickPreset = setHangingQuickPreset;
 
     // Exporters
     window.exportBambu3MF = exportBambu3MF;

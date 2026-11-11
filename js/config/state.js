@@ -24,7 +24,12 @@ export const cadState = {
     hanging: {
         bracketStyle: 'ornate', // 'ornate' (Hierro forjado con volutas como foto 2) | 'minimal' (Limpia)
         bracketColor: '#1e242b', // Hierro forjado oscuro
-        bracketLengthMm: 220,
+        bracketLengthMm: 200,
+        mountType: 'adhesive', // 'adhesive' (Zapata plana sin hoyos para cinta 3M) | 'top_hook' (Gancho sobre marco superior) | 'screws' (Tornillos tradicionales)
+        viewMode: 'assembled', // 'assembled' (En anaquel de madera) | 'bed' (Plano en cama 25 cm)
+        bedPlateView: 'all', // 'all' (Todas las camas), 'bracket' (Solo brazo), 'plates' (Solo placas), 'chains' (Solo eslabones)
+        plateStyle: 'slotted', // 'slotted' (Tablillas deslizables tipo gasolinera) | 'fixed' (Placa fija monolítica)
+        bracketAngle45: false, // Si es true, el brazo se rota 45° en la cama para aprovechar la diagonal de 353 mm
         chainColor: '#64748b',   // Acero / bronce
         chainLengthMm: 35,
         rebuildTimer: null,

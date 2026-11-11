@@ -13,8 +13,11 @@ import {
     hangingBracketGroup,
     hangingChainsGroup,
     hangingPlatesGroup,
-    hangingMountGroup
+    hangingMountGroup,
+    scene,
+    resetCameraView
 } from '../scene/sceneManager.js';
+import { buildEnvironment, setBedLayout, updateBedAlertStatus } from '../scene/environment.js';
 
 // Medidas del sistema (mm). Todo el conjunto está en el plano XY local: X a lo largo del brazo, Y hacia arriba.
 const ARM_H = 10;
@@ -33,7 +36,6 @@ const LINK_PITCH = LINK.length - 2 * LINK.wire - CLEARANCE;
  */
 function addChain(x, upperY, upperInnerR, count, lowerInnerR, zMid, matChain, namePrefix) {
     const hl = LINK.length / 2;
-    // El alambre superior del 1er eslabón descansa en el fondo del hueco del ojal superior
     const firstCenterY = upperY - upperInnerR + CLEARANCE + LINK.wire - hl;
     let centerY = firstCenterY;
 
@@ -47,7 +49,6 @@ function addChain(x, upperY, upperInnerR, count, lowerInnerR, zMid, matChain, na
         hangingChainsGroup.add(link);
     }
 
-    // El alambre inferior del último eslabón queda bajo la parte superior del ojal inferior
     return centerY - hl + LINK.wire + CLEARANCE - lowerInnerR;
 }
 
@@ -70,6 +71,11 @@ export async function rebuildHangingSignCAD() {
     const config = cadState.hanging;
     const plates = config.plates || [];
     if (plates.length === 0) return;
+
+    const isBedView = config.viewMode === 'bed';
+    const bedPlateView = config.bedPlateView || 'all';
+    const isSlotted = config.plateStyle !== 'fixed';
+    const mountType = config.mountType || 'adhesive';
 
     const matBracket = new THREE.MeshStandardMaterial({
         color: new THREE.Color(config.bracketColor || '#1e242b'),
@@ -96,14 +102,16 @@ export async function rebuildHangingSignCAD() {
     const braceRadius = Math.max(18, Math.min(42, chainX1 - 14));
     const zMid = BRACKET_T / 2;
 
-    // 2. Brazo de hierro forjado con refuerzo curvo y ojales alineados a las argollas de la placa
+    // 2. Brazo de soporte arquitectónico (con tipo de anclaje: zapata 3M adhesiva, gancho o tornillos)
     const bracketGeo = createOrnateBracketGeometry({
         armLengthMm: armLength,
         armHeightMm: ARM_H,
-        postHeightMm: Math.max(110, braceRadius + 45),
+        postHeightMm: Math.max(115, braceRadius + 45),
+        postWidthMm: 14,
         thicknessMm: BRACKET_T,
         eyeletXs: [chainX1, chainX2],
-        braceRadiusMm: braceRadius
+        braceRadiusMm: braceRadius,
+        mountType: mountType
     });
     const bracketMesh = new THREE.Mesh(bracketGeo, matBracket);
     bracketMesh.name = "Brazo_Ornamental_Hierro";
@@ -117,7 +125,7 @@ export async function rebuildHangingSignCAD() {
     addChain(chainX1, bracketEyeY, BRACKET_EYE.innerR, topLinks, PLATE_EYE.innerR, zMid, matChain, 'Eslabon_Cadena_Izq');
     let nextTopEyeY = addChain(chainX2, bracketEyeY, BRACKET_EYE.innerR, topLinks, PLATE_EYE.innerR, zMid, matChain, 'Eslabon_Cadena_Der');
 
-    // 4. Placas modulares en cascada, unidas por un eslabón intermedio
+    // 4. Placas modulares en cascada (con opción de tablilla deslizable tipo gasolinera)
     for (let pIdx = 0; pIdx < plates.length; pIdx++) {
         const plateData = plates[pIdx];
         const n = pIdx + 1;
@@ -127,7 +135,6 @@ export async function rebuildHangingSignCAD() {
         const plateHeight = plateData.height || 50;
         const plateDepth = plateData.depth || 4.2;
         const hh = plateHeight / 2;
-        // Centro de la argolla superior = hh + topAbove - outerR sobre el centro de la placa
         const plateCenterY = nextTopEyeY - (hh + PLATE_EYE.topAbove - PLATE_EYE.outerR);
         const plateZ = zMid - plateDepth / 2;
 
@@ -151,7 +158,7 @@ export async function rebuildHangingSignCAD() {
         });
 
         const plateAssembly = createHangingPlateMesh(
-            plateWidth, plateHeight, plateDepth, !isLastPlate, matPlateBase, matPlateFrame, loopSpacing
+            plateWidth, plateHeight, plateDepth, !isLastPlate, matPlateBase, matPlateFrame, loopSpacing, isSlotted
         );
         plateAssembly.baseMesh.position.set(signCenterX, plateCenterY, plateZ);
         plateAssembly.frameMesh.position.set(signCenterX, plateCenterY, plateZ);
@@ -162,7 +169,7 @@ export async function rebuildHangingSignCAD() {
         hangingPlatesGroup.add(plateAssembly.baseMesh);
         hangingPlatesGroup.add(plateAssembly.frameMesh);
 
-        // Texto 3D sobre la placa, centrado y escalado para no desbordar el marco
+        // Texto 3D sobre la placa o tablilla
         const otFont = await ensureFontLoaded(plateData.font || 'montserrat');
         const rawText = (plateData.text || 'LETRERO').trim();
         const letterSize = Math.max(12, Math.min(plateHeight * 0.48, 38));
@@ -171,7 +178,6 @@ export async function rebuildHangingSignCAD() {
         if (otFont && rawText.length > 0) {
             let cursorX = 0;
             const letterGeos = [];
-            // Línea base común (letra 'H'): las letras con tilde no deben quedar más bajas que las demás
             const refGeo = createUTF8CharExtrudeGeometry(otFont, 'H', letterSize, 1, 0);
             const refMinY = refGeo ? refGeo.boundingBox.min.y : 0;
             const refCapH = refGeo ? refGeo.boundingBox.max.y - refGeo.boundingBox.min.y : letterSize;
@@ -213,54 +219,192 @@ export async function rebuildHangingSignCAD() {
         }
     }
 
-    // 5. Orientación de exhibición: colgado de pie (Y local -> Z mundo), atornillado al lateral de un anaquel
-    hangingRoot.position.set(0, 0, 0);
-    hangingRoot.rotation.set(Math.PI / 2, 0, 0);
-    hangingRoot.updateMatrixWorld(true);
+    // =========================================================================
+    // 5. MODOS DE VISTA: ENSAMBLADO EN ANAQUEL vs DISPOSICIÓN EN CAMA 25 CM
+    // =========================================================================
+    if (isBedView) {
+        // --- MODO CAMA DE IMPRESIÓN (Plano sobre Z = 0) ---
+        hangingRoot.position.set(0, 0, 0);
+        hangingRoot.rotation.set(0, 0, 0); // No rotar hacia arriba: yace acostado en XY
 
-    const box = new THREE.Box3().setFromObject(hangingRoot);
-    if (!box.isEmpty()) {
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        const floorClearance = 60;
-        hangingRoot.position.set(-center.x, -center.y, -box.min.z + floorClearance);
+        // Visibilidad según la vista de cama seleccionada
+        const showBracket = bedPlateView === 'all' || bedPlateView === 'bracket';
+        const showPlates = bedPlateView === 'all' || bedPlateView === 'plates';
+        const showChains = bedPlateView === 'all' || bedPlateView === 'chains';
+
+        hangingBracketGroup.visible = showBracket;
+        hangingPlatesGroup.visible = showPlates;
+        hangingChainsGroup.visible = showChains;
+        hangingMountGroup.visible = false; // Sin madera en la vista de cama
+
+        // Camas múltiples si vemos 'all', o cama única si vemos una pieza
+        if (bedPlateView === 'all') {
+            setBedLayout(3, 290);
+        } else {
+            setBedLayout(1);
+        }
+
+        // Posicionar Brazo
+        if (showBracket) {
+            const bracketXOffset = bedPlateView === 'all' ? -290 : 0;
+            // Clonar y centrar la geometría para que la rotación diagonal ocurra perfectamente sobre el centro de la cama
+            const bedBracketGeo = bracketGeo.clone();
+            bedBracketGeo.center();
+            bracketMesh.geometry = bedBracketGeo;
+            bracketMesh.position.set(bracketXOffset, 0, 0);
+
+            // Si se activa rotación 45° o si el brazo mide más de 220 mm, rotarlo diagonalmente
+            const shouldAngle = config.bracketAngle45 || armLength > 220;
+            bracketMesh.rotation.z = shouldAngle ? (Math.PI / 4) : 0;
+        }
+
+        // Posicionar Placas Modulares
+        if (showPlates) {
+            const platesXOffset = bedPlateView === 'all' ? 0 : 0;
+            const numP = plates.length;
+            plates.forEach((p, idx) => {
+                const prefix = `Placa_${idx + 1}_`;
+                const pMeshes = hangingPlatesGroup.children.filter(m => (m.name || '').startsWith(prefix));
+                const py = (idx - (numP - 1) / 2) * -65;
+
+                const pBox = new THREE.Box3();
+                pMeshes.forEach(m => pBox.expandByObject(m));
+                if (!pBox.isEmpty()) {
+                    const origCx = (pBox.min.x + pBox.max.x) / 2;
+                    const origCy = (pBox.min.y + pBox.max.y) / 2;
+                    const origMinZ = pBox.min.z;
+
+                    pMeshes.forEach(m => {
+                        m.position.x += platesXOffset - origCx;
+                        m.position.y += py - origCy;
+                        m.position.z -= origMinZ;
+                    });
+                }
+            });
+        }
+
+        // Posicionar Eslabones en cuadrícula limpia sobre la cama
+        if (showChains) {
+            const chainsXOffset = bedPlateView === 'all' ? 290 : 0;
+            const links = hangingChainsGroup.children;
+            const perRow = 4;
+            links.forEach((l, idx) => {
+                const col = idx % perRow;
+                const row = Math.floor(idx / perRow);
+                const lx = chainsXOffset - 35 + col * 24;
+                const ly = 35 - row * 24;
+                l.position.set(lx, ly, LINK.wire / 2);
+                l.rotation.set(0, 0, 0); // Acostados planos sobre la cama
+            });
+        }
+
         hangingRoot.updateMatrixWorld(true);
 
-        buildShelfEndPanel(new THREE.Box3().setFromObject(hangingRoot));
+        // Advertencia de cama: si alguna pieza excede los 250 mm
+        const isOver = armLength > (config.bracketAngle45 ? 340 : 250);
+        updateBedAlertStatus(isOver);
+    } else {
+        // --- MODO ENSAMBLADO EN ANAQUEL (Vertical Z-up con lateral de madera) ---
+        hangingBracketGroup.visible = true;
+        hangingPlatesGroup.visible = true;
+        hangingChainsGroup.visible = true;
+        hangingMountGroup.visible = true;
+
+        bracketMesh.position.set(0, 0, 0);
+        bracketMesh.rotation.set(0, 0, 0);
+
+        // Configurar orientación vertical en el espacio
+        hangingRoot.position.set(0, 0, 0);
+        hangingRoot.rotation.set(Math.PI / 2, 0, 0);
+        hangingRoot.updateMatrixWorld(true);
+
+        const box = new THREE.Box3().setFromObject(hangingRoot);
+        if (!box.isEmpty()) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            const floorClearance = 60;
+            hangingRoot.position.set(-center.x, -center.y, -box.min.z + floorClearance);
+            hangingRoot.updateMatrixWorld(true);
+
+            buildShelfEndPanel(new THREE.Box3().setFromObject(hangingRoot), mountType);
+        }
+
+        setBedLayout(1);
+        updateBedAlertStatus(false);
     }
 
+    if (scene) buildEnvironment(scene);
     updateHangingMetrics();
 }
 
 /**
- * Lateral de madera del anaquel donde se atornilla el montante (solo exhibición, nunca se exporta)
+ * Módulo de exhibición del anaquel de madera de la biblioteca (reproduce la moldura y panel de las fotos)
  */
-function buildShelfEndPanel(signBox) {
-    const panelT = 18;
-    const panelDepth = 300;
-    const topZ = signBox.max.z + 45;
-    const panelGeo = new THREE.BoxGeometry(panelT, panelDepth, topZ);
-    panelGeo.translate(signBox.min.x - panelT / 2, 0, topZ / 2);
+function buildShelfEndPanel(signBox, mountType = 'adhesive') {
+    const panelT = 24;
+    const panelDepth = 340;
+    const topZ = signBox.max.z + 50;
 
-    const wood = new THREE.MeshStandardMaterial({ color: 0x8a5a36, roughness: 0.7, metalness: 0.02 });
-    const panel = new THREE.Mesh(panelGeo, wood);
-    panel.name = "Lateral_Anaquel_Exhibicion";
-    panel.receiveShadow = true;
-    panel.castShadow = true;
-    hangingMountGroup.add(panel);
+    // 1. Moldura perimetral exterior de madera de nogal (como en la foto real de la biblioteca)
+    const frameGeo = new THREE.BoxGeometry(panelT, panelDepth, topZ);
+    frameGeo.translate(signBox.min.x - panelT / 2, 0, topZ / 2);
+    const matWoodFrame = new THREE.MeshStandardMaterial({
+        color: 0x5a3921, // Nogal oscuro institucional
+        roughness: 0.65,
+        metalness: 0.04
+    });
+    const frameMesh = new THREE.Mesh(frameGeo, matWoodFrame);
+    frameMesh.name = "Moldura_Anaquel_Madera";
+    frameMesh.receiveShadow = true;
+    frameMesh.castShadow = true;
+    hangingMountGroup.add(frameMesh);
 
-    // Canto frontal más claro para que el lateral se lea como un mueble
-    const edgeGeo = new THREE.BoxGeometry(panelT + 0.5, 4, topZ);
-    edgeGeo.translate(signBox.min.x - panelT / 2, -panelDepth / 2 - 1.5, topZ / 2);
-    const edge = new THREE.Mesh(edgeGeo, new THREE.MeshStandardMaterial({ color: 0xb98557, roughness: 0.6 }));
-    edge.name = "Canto_Anaquel_Exhibicion";
-    hangingMountGroup.add(edge);
+    // 2. Tablero interior rebajado (panel central liso)
+    const insetGeo = new THREE.BoxGeometry(panelT - 6, panelDepth - 45, topZ - 45);
+    insetGeo.translate(signBox.min.x - panelT / 2 + 3.5, 0, topZ / 2);
+    const matWoodInset = new THREE.MeshStandardMaterial({
+        color: 0x754e2d, // Tono madera cálido central
+        roughness: 0.72,
+        metalness: 0.02
+    });
+    const insetMesh = new THREE.Mesh(insetGeo, matWoodInset);
+    insetMesh.name = "Tablero_Central_Anaquel";
+    insetMesh.receiveShadow = true;
+    hangingMountGroup.add(insetMesh);
+
+    // 3. Cornisa superior moldurada
+    const crownGeo = new THREE.BoxGeometry(panelT + 12, panelDepth + 14, 16);
+    crownGeo.translate(signBox.min.x - panelT / 2, 0, topZ - 8);
+    const matCrown = new THREE.MeshStandardMaterial({ color: 0x482c16, roughness: 0.6 });
+    const crown = new THREE.Mesh(crownGeo, matCrown);
+    crown.name = "Cornisa_Superior_Anaquel";
+    crown.castShadow = true;
+    hangingMountGroup.add(crown);
+
+    // 4. Si es montaje adhesivo 3M Command (sin perforar), mostrar la lengüeta elástica de retiro limpio
+    if (mountType === 'adhesive') {
+        const stripGeo = new THREE.BoxGeometry(1.5, 20, 35);
+        stripGeo.translate(signBox.min.x + 0.8, -40, signBox.max.z - 95);
+        const matStrip = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+        const stripMesh = new THREE.Mesh(stripGeo, matStrip);
+        stripMesh.name = "Tira_3M_Command_Limpia";
+        hangingMountGroup.add(stripMesh);
+
+        // Pestaña inferior visible de retiro
+        const tabGeo = new THREE.BoxGeometry(2, 14, 12);
+        tabGeo.translate(signBox.min.x + 1, -40, signBox.max.z - 118);
+        const matTab = new THREE.MeshStandardMaterial({ color: 0xf87171, roughness: 0.5 });
+        const tabMesh = new THREE.Mesh(tabGeo, matTab);
+        tabMesh.name = "Lengueta_Retiro_3M";
+        hangingMountGroup.add(tabMesh);
+    }
 }
 
 /**
  * Calcula y actualiza las métricas del rótulo colgante
  */
 function updateHangingMetrics() {
+    const isBed = cadState.hanging.viewMode === 'bed';
     const box = new THREE.Box3().setFromObject(hangingRoot);
     if (box.isEmpty()) return;
 
@@ -272,9 +416,26 @@ function updateHangingMetrics() {
     const h = Math.round(size.z);
 
     const badge = document.getElementById('dimensions-badge');
-    if (badge) badge.textContent = `${w} × ${h} × ${d} mm`;
+    if (badge) {
+        if (isBed) {
+            badge.textContent = `En Cama 25 cm: ${w} × ${d} mm`;
+        } else {
+            badge.textContent = `${w} × ${h} × ${d} mm`;
+        }
+    }
 
     const partsCount = hangingBracketGroup.children.length + hangingChainsGroup.children.length + hangingPlatesGroup.children.length;
     const partsBadge = document.getElementById('parts-count-badge');
-    if (partsBadge) partsBadge.textContent = `${partsCount} Piezas Modulares`;
+    if (partsBadge) {
+        if (isBed) {
+            partsBadge.textContent = `Placas Despiezadas (${cadState.hanging.bedPlateView || 'all'})`;
+        } else {
+            partsBadge.textContent = `${partsCount} Piezas Modulares`;
+        }
+    }
+
+    const bboxStat = document.getElementById('stat-bbox');
+    if (bboxStat) {
+        bboxStat.textContent = isBed ? `Cama 250×250 mm (${w}×${d} mm)` : `${w} × ${h} × ${d} mm`;
+    }
 }

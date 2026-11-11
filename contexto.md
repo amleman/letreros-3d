@@ -143,12 +143,23 @@ Manejado por `js/cad/signGenerator.js`. El objeto 3D raíz es `printableRoot`, q
 7. **`ceiling` (Colgante de Techo Plano):** Placa suspendida con argollas superiores de anclaje para cables de acero o cáncamos.
 
 ### Espacio 2: Rótulos Colgantes Modulares de Anaquel (`hanging`)
-Manejado por `js/cad/hangingSignGenerator.js`. El objeto 3D raíz es `hangingRoot` con tres subgrupos:
-1. `hangingBracketGroup`: Soporte de pared/cabecera de anaquel en **hierro forjado ornamental**, con montante vertical atornillable, volutas en 'S' de filigrana y punta de flecha clásica.
+Manejado por `js/cad/hangingSignGenerator.js`. El objeto 3D raíz es `hangingRoot` con tres subgrupos principales:
+1. `hangingBracketGroup`: Soporte de pared/cabecera de anaquel en **hierro forjado ornamental**, con volutas en 'S' de filigrana, refuerzo en arco y punta de flecha clásica. Admite fijación sin dañar la madera:
+   - `mountType: 'adhesive'` (Recomendado): Zapata ancha de 38 mm para cinta doble cara / 3M Command con ranura inferior para la lengüeta elástica de retiro limpio. Cero perforaciones a la madera.
+   - `mountType: 'top_hook'`: Gancho de coronación superior de 26 mm de profundidad con pestaña posterior de 18 mm que abraza la moldura superior de la cabecera del anaquel por gravedad. Cero adhesivo y cero tornillos.
+   - `mountType: 'screws'`: Montante tradicional con 2 perforaciones avellanadas para tornillos de madera.
 2. `hangingChainsGroup`: Eslabones en 'C' desmontables e independientes impresos en 3D para colgar el letrero.
 3. `hangingPlatesGroup`: Array de placas modulares (mallas `Placa_<n>_Base`, `Placa_<n>_Marco`, `Placa_<n>_Letra_<k>`).
+   - `plateStyle: 'slotted'` (Sistema Tipo Gasolinera): El marco exterior incorpora un canal ranurado con boca de inserción abierta en el extremo derecho. Permite deslizar e intercambiar tablillas de texto en segundos sin desmontar el rótulo ni las cadenas.
+   - `plateStyle: 'fixed'`: Marco y fondo fusionados en una sola placa sólida monolítica.
 
-Geometría paramétrica: la placa más ancha define el largo del brazo (holgura de 15 mm al montante) y la más angosta la separación común de argollas. Los eslabones en 'C' (`createChainLinkGeometry`, con abertura real) se calculan para quedar enganchados dentro de cada ojal (holgura 0.4 mm) y alternan 90°. En exhibición el conjunto cuelga del lateral de madera de un anaquel (`hangingMountGroup`, solo visual, nunca se exporta) y la cama de impresión se oculta. El .3MF exporta brazo, eslabones acostados en fila listos para imprimir y cada placa en 3 objetos de color. El usuario puede pulsar **`[+ Añadir Módulo Inferior]`** para colgar placas en cascada hacia abajo conectadas por argollas inferiores. Cada placa puede tener diferente texto, color, tipografía y tamaño.
+**Modo de Visualización y Verificación en Cama de 25 cm (`cadState.hanging.viewMode`):**
+- `'assembled'`: Muestra el letrero vertical montado en el lateral de madera de nogal con moldura real (`hangingMountGroup`).
+- `'bed'`: Despieza todas las partes y las acuesta planas en el plano XY (Z=0) para verificar su impresión sin soportes:
+  - Selector de vistas de cama (`cadState.hanging.bedPlateView`): `'all'` (despliega 3 camas de impresión de 250×250 mm en fila: Cama 1 Brazo, Cama 2 Placas, Cama 3 Eslabones), `'bracket'`, `'plates'`, `'chains'`.
+  - Opción de rotación diagonal 45° (`bracketAngle45`): Rota el brazo de soporte sobre su centro para aprovechar la diagonal de 353 mm de la cama PEI de 250×250 mm, permitiendo imprimir brazos largos de hasta 340 mm en una sola pieza.
+  - El .3MF exporta brazo, eslabones acostados en fila listos para imprimir y cada placa en 3 objetos de color (Base, Marco, Letras). Botón **`[+ Añadir Módulo Inferior]`** para añadir hasta 4 módulos en cascada.
+  - Presets rápidos de biblioteca incluidos: `SECCIÓN GUATEMALA`, `FOLLETOS & REVISTAS`, `LITERATURA 800`.
 
 ---
 
