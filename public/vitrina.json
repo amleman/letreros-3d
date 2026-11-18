@@ -671,6 +671,12 @@
         "date": "2026-11-18",
         "task": "Corrección: el anaquel de madera de Rótulos Colgantes ya no aparece en Letreros Sobremesa al iniciar",
         "hours": 0.5
+      },
+      {
+        "id": "w_dev_21",
+        "date": "2026-11-18",
+        "task": "Despliegue en Netlify: el diseñador CAD ahora se publica en la raíz del sitio y la vitrina sigue en /visor.html",
+        "hours": 0.5
       }
     ]
   }

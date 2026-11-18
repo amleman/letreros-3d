@@ -47,7 +47,7 @@ function vitrinaDevApi() {
 }
 
 export default defineConfig(({ mode }) => {
-  // `vite build --mode vitrina` (Netlify): solo se publica el visor para jefatura, nunca el diseñador CAD
+  // `vite build --mode vitrina` (Netlify): diseñador CAD en la raíz + visor en modo vitrina para jefatura
   const isVitrina = mode === 'vitrina';
 
   return {
@@ -62,12 +62,10 @@ export default defineConfig(({ mode }) => {
       sourcemap: !isVitrina,
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
-        input: isVitrina
-          ? { visor: resolve(__dirname, 'visor.html') }
-          : {
-              main: resolve(__dirname, 'index.html'),
-              visor: resolve(__dirname, 'visor.html')
-            }
+        input: {
+          main: resolve(__dirname, 'index.html'),
+          visor: resolve(__dirname, 'visor.html')
+        }
       }
     }
   };
