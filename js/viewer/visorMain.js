@@ -39,6 +39,7 @@ const isVitrinaMode = IS_VITRINA_BUILD || new URLSearchParams(window.location.se
 
 const STYLE_CATEGORY_LABELS = {
     plaque: 'Placa Wayfinding',
+    plaque_filet: 'Placa Filete Institucional',
     shelf_clip: 'Canto de Anaquel',
     wedge: 'Cuña de Escritorio',
     modular: 'Bloques Modulares',

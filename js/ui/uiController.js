@@ -404,19 +404,21 @@ export function switchMainTab(tab) {
  */
 export function selectStyle(styleName) {
     cadState.style = styleName;
-    ['modular', 'solid', 'filigree', 'plaque', 'shelf_clip', 'wedge', 'ceiling'].forEach(s => {
+    ['modular', 'solid', 'filigree', 'plaque', 'plaque_filet', 'shelf_clip', 'wedge', 'ceiling'].forEach(s => {
         const btn = document.getElementById(`style-btn-${s}`);
         if (!btn) return;
+        // Los botones de ancho completo conservan su col-span
+        const span = btn.classList.contains('col-span-2') ? 'col-span-2 ' : '';
         if (s === styleName) {
-            btn.className = "text-left p-2.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 transition";
+            btn.className = span + "text-left p-2.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 transition";
         } else {
-            btn.className = "text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition";
+            btn.className = span + "text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition";
         }
     });
 
     const plaquePanel = document.getElementById('plaque-options-panel');
     if (plaquePanel) {
-        plaquePanel.classList.toggle('hidden', styleName !== 'plaque');
+        plaquePanel.classList.toggle('hidden', styleName !== 'plaque' && styleName !== 'plaque_filet');
     }
 
     const wedgePanel = document.getElementById('wedge-options-panel');

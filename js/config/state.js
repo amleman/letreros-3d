@@ -6,7 +6,7 @@ export const cadState = {
     activeWorkspace: 'tabletop',
 
     // Estilo para letreros de sobremesa/anaquel/techo:
-    // 'modular' | 'solid' | 'filigree' | 'plaque' | 'shelf_clip' | 'wedge' | 'ceiling'
+    // 'modular' | 'solid' | 'filigree' | 'plaque' | 'plaque_filet' | 'shelf_clip' | 'wedge' | 'ceiling'
     style: 'modular',
 
     otFonts: {},      // Fuentes OpenType.js con soporte completo UTF-8 (Á, É, Í, Ó, Ú, Ñ, Ü)

@@ -86,6 +86,101 @@ export function createRoundedBoxGeometry(w, h, d, radius = 10) {
 }
 
 /**
+ * FILETE PERIMETRAL (Placa Filete): marco fino en relieve, retirado del borde y concéntrico con las
+ * esquinas redondeadas de la placa. Se imprime con el mismo filamento de las letras (placa de 2 colores).
+ *
+ * part: 'full'  -> anillo cerrado de una pieza
+ *       'left'  -> remate curvo izquierdo (para la división por partes; los tramos rectos van como rieles)
+ *       'right' -> remate curvo derecho
+ *
+ * Devuelve { geo, frame } donde frame trae las cotas útiles para trazar los tramos rectos.
+ */
+export function createPlaqueFiletGeometry({ minX, maxX, height, inset = 4, stroke = 1.6, radius = 12, depth = 1.5, part = 'full' }) {
+    const L = minX + inset;
+    const R = maxX - inset;
+    const T = height / 2 - inset;
+    const B = -T;
+    const halfW = (R - L) / 2;
+    // Radio exterior concéntrico con la esquina de la placa; nunca menor que el trazo (el interior conserva curva)
+    const ro = Math.max(stroke + 0.6, Math.min(radius - inset, halfW - 0.5, T - 0.5));
+    const ri = ro - stroke;
+    const Ti = T - stroke;
+    const Bi = B + stroke;
+    const capLen = 2;
+    const capLeftEnd = L + ro + capLen;
+    const capRightStart = R - ro - capLen;
+
+    const shape = new THREE.Shape();
+
+    if (part === 'full') {
+        shape.moveTo(L + ro, B);
+        shape.lineTo(R - ro, B);
+        shape.absarc(R - ro, B + ro, ro, -Math.PI / 2, 0, false);
+        shape.lineTo(R, T - ro);
+        shape.absarc(R - ro, T - ro, ro, 0, Math.PI / 2, false);
+        shape.lineTo(L + ro, T);
+        shape.absarc(L + ro, T - ro, ro, Math.PI / 2, Math.PI, false);
+        shape.lineTo(L, B + ro);
+        shape.absarc(L + ro, B + ro, ro, Math.PI, Math.PI * 1.5, false);
+
+        const hole = new THREE.Path();
+        hole.moveTo(L + ro, Bi);
+        hole.lineTo(R - ro, Bi);
+        hole.absarc(R - ro, B + ro, ri, -Math.PI / 2, 0, false);
+        hole.lineTo(R - stroke, T - ro);
+        hole.absarc(R - ro, T - ro, ri, 0, Math.PI / 2, false);
+        hole.lineTo(L + ro, Ti);
+        hole.absarc(L + ro, T - ro, ri, Math.PI / 2, Math.PI, false);
+        hole.lineTo(L + stroke, B + ro);
+        hole.absarc(L + ro, B + ro, ri, Math.PI, Math.PI * 1.5, false);
+        shape.holes.push(hole);
+    } else if (part === 'left') {
+        const xc = capLeftEnd;
+        shape.moveTo(xc, T);
+        shape.lineTo(L + ro, T);
+        shape.absarc(L + ro, T - ro, ro, Math.PI / 2, Math.PI, false);
+        shape.lineTo(L, B + ro);
+        shape.absarc(L + ro, B + ro, ro, Math.PI, Math.PI * 1.5, false);
+        shape.lineTo(xc, B);
+        shape.lineTo(xc, Bi);
+        shape.lineTo(L + ro, Bi);
+        shape.absarc(L + ro, B + ro, ri, Math.PI * 1.5, Math.PI, true);
+        shape.lineTo(L + stroke, T - ro);
+        shape.absarc(L + ro, T - ro, ri, Math.PI, Math.PI / 2, true);
+        shape.lineTo(xc, Ti);
+        shape.lineTo(xc, T);
+    } else {
+        const xr = capRightStart;
+        shape.moveTo(xr, T);
+        shape.lineTo(R - ro, T);
+        shape.absarc(R - ro, T - ro, ro, Math.PI / 2, 0, true);
+        shape.lineTo(R, B + ro);
+        shape.absarc(R - ro, B + ro, ro, 0, -Math.PI / 2, true);
+        shape.lineTo(xr, B);
+        shape.lineTo(xr, Bi);
+        shape.lineTo(R - ro, Bi);
+        shape.absarc(R - ro, B + ro, ri, -Math.PI / 2, 0, false);
+        shape.lineTo(R - stroke, T - ro);
+        shape.absarc(R - ro, T - ro, ri, 0, Math.PI / 2, false);
+        shape.lineTo(xr, Ti);
+        shape.lineTo(xr, T);
+    }
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        steps: 1,
+        depth,
+        bevelEnabled: false,
+        curveSegments: 20
+    });
+    geo.computeVertexNormals();
+
+    return {
+        geo,
+        frame: { L, R, T, B, stroke, ro, capLeftEnd, capRightStart, innerMargin: inset + stroke }
+    };
+}
+
+/**
  * Mitad izquierda de placa con conector macho de rompecabezas integrado para ensamble sin pegamento
  */
 export function createLeftPuzzlePlaque(w, h, d, radius = 10, tabWidth = 24, tabDepth = 14, tabNeck = 14, cutOffsetX = 0) {

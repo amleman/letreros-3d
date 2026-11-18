@@ -597,7 +597,7 @@
                         <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                             <i data-lucide="layers" class="w-3.5 h-3.5"></i>
                         </span>
-                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">3. Diseño Estructural (7 Estilos)</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">3. Diseño Estructural (8 Estilos)</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">+Techo Nuevo</span>
@@ -655,6 +655,15 @@
                                 <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Escritorio 12°</span>
                             </div>
                             <p class="text-[10px] text-slate-400 mt-1">Inclinación suave para escritorios de jefatura y coordinación.</p>
+                        </button>
+
+                        <!-- ESTILO 4b: PLACA FILETE (misma placa Wayfinding, marco perimetral en el color de las letras: solo 2 colores) -->
+                        <button type="button" onclick="window.selectStyle('plaque_filet')" id="style-btn-plaque_filet" class="col-span-2 text-left p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-600 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white">Placa Filete Institucional</span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">2 colores</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Placa con marco fino en relieve siguiendo el borde, impreso con el mismo filamento de las letras.</p>
                         </button>
 
                         <!-- NUEVO ESTILO 7: COLGANTE DE TECHO (Como en las imágenes subidas) -->
@@ -740,6 +749,15 @@
                             <label class="flex items-center gap-2 text-[11px] text-slate-200 cursor-pointer select-none bg-slate-900/70 p-2 rounded-lg border border-slate-800">
                                 <input id="wedge-multiline-toggle" type="checkbox" checked onchange="window.triggerRebuild()" class="accent-amber-500 rounded">
                                 <span>Auto-dividir cargos largos en 2 líneas centradas</span>
+                            </label>
+
+                            <!-- Orientación de impresión: cara de letras paralela a la cama (1 solo cambio de filamento) -->
+                            <label class="flex items-start gap-2 text-[11px] text-slate-200 cursor-pointer select-none bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30">
+                                <input id="wedge-print-flat-toggle" type="checkbox" checked onchange="window.triggerRebuild(); setTimeout(() => window.resetCameraView(), 450);" class="accent-emerald-500 rounded mt-0.5">
+                                <span>
+                                    <span class="font-bold text-emerald-300">Orientar para imprimir (cara de letras paralela a la cama)</span>
+                                    <span class="block text-[10px] text-slate-400 leading-snug mt-0.5">La rampa queda horizontal arriba y la base inclinada abajo (con soportes). Así las letras empiezan todas en la misma capa: <strong class="text-emerald-300">un solo cambio de color</strong> en vez de uno por capa. El .3MF/.STL se exporta ya en esta posición.</span>
+                                </span>
                             </label>
 
                             <div>

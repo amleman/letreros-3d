@@ -653,6 +653,24 @@
         "date": "2026-11-09",
         "task": "Rediseño de la nota de bienvenida: orden por secciones y recomendación destacada",
         "hours": 0.5
+      },
+      {
+        "id": "w_dev_18",
+        "date": "2026-11-18",
+        "task": "Nuevo estilo Placa Filete Institucional: marco perimetral en relieve a 2 colores (sin barra gris), compatible con escudos y división por partes",
+        "hours": 1.5
+      },
+      {
+        "id": "w_dev_19",
+        "date": "2026-11-18",
+        "task": "Cuña de escritorio orientada para imprimir: cara de letras paralela a la cama (1 solo cambio de color) y exportación en esa posición",
+        "hours": 1
+      },
+      {
+        "id": "w_dev_20",
+        "date": "2026-11-18",
+        "task": "Corrección: el anaquel de madera de Rótulos Colgantes ya no aparece en Letreros Sobremesa al iniciar",
+        "hours": 0.5
       }
     ]
   }

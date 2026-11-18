@@ -237,6 +237,7 @@ function drawProofOverlays(ctx, info) {
         filigree: 'Capitular Clásica (Cartela Iluminada & Tabula Ansata)',
         classic: 'Capitular Clásica (Marco Arquitectónico)',
         plaque: 'Placa Wayfinding (Franja Dewey)',
+        plaque_filet: 'Placa Filete Institucional (Marco perimetral, 2 colores)',
         shelf_clip: 'Canto de Anaquel (Pinza Trasera 19mm)',
         wedge: 'Cuña Ejecutiva de Escritorio (Ángulo Suave)',
         ceiling: 'Rótulo Colgante de Techo (Rieles y Tensores)'

@@ -101,7 +101,8 @@ export function captureCurrentConfig(name = '') {
 
     const wedgeConfig = {
         angle: parseFloat(document.getElementById('param-wedge-angle')?.value || 12),
-        depth: parseFloat(document.getElementById('param-wedge-depth')?.value || 55)
+        depth: parseFloat(document.getElementById('param-wedge-depth')?.value || 55),
+        printFlat: document.getElementById('wedge-print-flat-toggle')?.checked ?? true
     };
 
     return {
@@ -289,6 +290,12 @@ export function applyConfig(cfg, rebuild = true) {
         }
     }
 
+    // 8b. Cuña: orientación de impresión (cara de letras paralela a la cama)
+    if (cfg.wedge && typeof cfg.wedge.printFlat === 'boolean') {
+        const wfEl = document.getElementById('wedge-print-flat-toggle');
+        if (wfEl) wfEl.checked = cfg.wedge.printFlat;
+    }
+
     // 9. Opciones de Colgante Techo
     if (cfg.ceiling) {
         const cwEl = document.getElementById('param-ceiling-width');
@@ -455,6 +462,7 @@ export function renderUserPresetsList() {
             solid: 'Placa Monolítica',
             filigree: 'Capitular Clásica',
             plaque: 'Placa Wayfinding',
+            plaque_filet: 'Placa Filete',
             shelf_clip: 'Canto Anaquel',
             wedge: 'Cuña 60°',
             ceiling: 'Colgante Techo'

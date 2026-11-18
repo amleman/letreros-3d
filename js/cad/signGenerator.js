@@ -15,6 +15,7 @@ import {
     createShelfClipAssembly,
     createAngledWedgeAssembly,
     createCeilingSuspendedAssembly,
+    createPlaqueFiletGeometry,
     clearGroupGeometries
 } from './geometryBuilders.js';
 import {
@@ -234,6 +235,8 @@ export async function rebuildSignCAD() {
     // División automática por partes: la placa se construye al final, cuando ya se conocen todos los relieves
     cadState.segmentation = null;
     let pendingSlab = null;
+    // Cuña: ángulo (rad) a enderezar para imprimir con la cara de letras paralela a la cama (null = como en el escritorio)
+    let wedgePrintTiltRad = null;
 
     const matSubText = new THREE.MeshStandardMaterial({
         color: new THREE.Color(subHex),
@@ -295,9 +298,10 @@ export async function rebuildSignCAD() {
     const wedgePanelEl = document.getElementById('wedge-options-panel');
     const ceilingPanelEl = document.getElementById('ceiling-options-panel');
     const logosPanelEl = document.getElementById('institutional-logos-panel');
-    const supportsInstitutionalLogos = (cadState.style === 'ceiling' || cadState.style === 'wedge' || cadState.style === 'plaque');
+    const isPlaqueFamily = cadState.style === 'plaque' || cadState.style === 'plaque_filet';
+    const supportsInstitutionalLogos = (cadState.style === 'ceiling' || cadState.style === 'wedge' || isPlaqueFamily);
 
-    if (plaquePanelEl) plaquePanelEl.classList.toggle('hidden', cadState.style !== 'plaque');
+    if (plaquePanelEl) plaquePanelEl.classList.toggle('hidden', !isPlaqueFamily);
     if (shelfPanelEl) shelfPanelEl.classList.toggle('hidden', cadState.style !== 'shelf_clip');
     if (wedgePanelEl) wedgePanelEl.classList.toggle('hidden', cadState.style !== 'wedge');
     if (ceilingPanelEl) ceilingPanelEl.classList.toggle('hidden', cadState.style !== 'ceiling');
@@ -569,8 +573,15 @@ export async function rebuildSignCAD() {
 
     // =====================================================================
     // ESTILO 4: PLACA WAYFINDING DEWEY — INTACTO
+    // ESTILO 4b: PLACA FILETE — misma placa, pero en lugar de la barra Dewey (3er color) lleva un
+    // filete perimetral en relieve impreso con el filamento de las letras (solo 2 colores)
     // =====================================================================
-    else if (cadState.style === 'plaque') {
+    else if (isPlaqueFamily) {
+        const isFiletPlaque = cadState.style === 'plaque_filet';
+        const filetInset = 4;
+        const filetStroke = 1.6;
+        const filetDepth = Math.max(1.2, letterDepth * 0.4);
+
         const plaquePanel = document.getElementById('plaque-options-panel');
         if (plaquePanel) plaquePanel.classList.remove('hidden');
 
@@ -602,8 +613,8 @@ export async function rebuildSignCAD() {
         // Medir ancho máximo requerido por las líneas
         const maxLineW = Math.max(...builtLines.map(b => b.totalW), 40);
         const padX = 26;
-        const accentBarW = 16;
-        const accentBarMargin = 5;
+        const accentBarW = isFiletPlaque ? 0 : 16;
+        const accentBarMargin = isFiletPlaque ? 0 : 5;
 
         // Altura automática según líneas e inclusión de subtítulo
         const lineStep = effectiveLetterSize * 1.25;
@@ -612,7 +623,9 @@ export async function rebuildSignCAD() {
             ? Math.round(totalTextH + (showSub && subText ? subSizeVal * 2.2 + subGapVal : 28))
             : Math.round(showSub && subText ? letterSize * 2.15 : letterSize * 1.65);
 
-        const effLogoDia = Math.min(logoSizeVal, Math.max(24, autoPlaqueH - 10));
+        // En la Placa Filete el escudo debe quedar dentro del marco (no pisarlo)
+        const logoVerticalClear = isFiletPlaque ? (filetInset + filetStroke + 2.5) * 2 : 10;
+        const effLogoDia = Math.min(logoSizeVal, Math.max(24, autoPlaqueH - logoVerticalClear));
         const leftReserve = hasLeftOnSign ? (effLogoDia + 14) : 0;
         const rightReserve = hasRightOnSign ? (effLogoDia + 14) : 0;
 
@@ -706,13 +719,32 @@ export async function rebuildSignCAD() {
             plaqueMesh.receiveShadow = true;
             baseGroup.add(plaqueMesh);
 
-            // Barra decorativa izquierda también con esquinas redondeadas
-            const barGeo = createRoundedBoxGeometry(accentBarW, plaqueH - 8, letterDepth * 0.8, Math.min(plaqueRadius * 0.6, 6));
-            barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5, 0, baseDepth + explodeZ * 0.5);
-            const barMesh = new THREE.Mesh(barGeo, matAccent);
-            barMesh.name = "Barra_Codigo_Dewey";
-            barMesh.castShadow = true;
-            accentsGroup.add(barMesh);
+            if (isFiletPlaque) {
+                // Filete perimetral cerrado, mismo filamento que las letras
+                const { geo: filetGeo } = createPlaqueFiletGeometry({
+                    minX: centerPlaqueX - plaqueW / 2,
+                    maxX: centerPlaqueX + plaqueW / 2,
+                    height: plaqueH,
+                    inset: filetInset,
+                    stroke: filetStroke,
+                    radius: plaqueRadius,
+                    depth: filetDepth,
+                    part: 'full'
+                });
+                filetGeo.translate(0, 0, baseDepth + explodeZ);
+                const filetMesh = new THREE.Mesh(filetGeo, matFace);
+                filetMesh.name = "Filete_Perimetral";
+                filetMesh.castShadow = true;
+                lettersGroup.add(filetMesh);
+            } else {
+                // Barra decorativa izquierda también con esquinas redondeadas
+                const barGeo = createRoundedBoxGeometry(accentBarW, plaqueH - 8, letterDepth * 0.8, Math.min(plaqueRadius * 0.6, 6));
+                barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5, 0, baseDepth + explodeZ * 0.5);
+                const barMesh = new THREE.Mesh(barGeo, matAccent);
+                barMesh.name = "Barra_Codigo_Dewey";
+                barMesh.castShadow = true;
+                accentsGroup.add(barMesh);
+            }
         } else {
             // División automática por partes: la placa se genera en applySlabSegmentation()
             pendingSlab = {
@@ -728,20 +760,53 @@ export async function rebuildSignCAD() {
                 rails: []
             };
 
-            const barGeo = createRoundedBoxGeometry(accentBarW, plaqueH - 8, letterDepth * 0.8, Math.min(plaqueRadius * 0.6, 6));
-            barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5, 0, baseDepth + explodeZ * 0.5);
-            const barMesh = new THREE.Mesh(barGeo, matAccent);
-            barMesh.name = "Barra_Codigo_Dewey";
-            barMesh.castShadow = true;
-            accentsGroup.add(barMesh);
+            if (isFiletPlaque) {
+                // Remates curvos en los extremos (no estorban a los cortes) y tramos rectos como rieles,
+                // que applySlabSegmentation() corta exactamente en cada costura
+                const filetArgs = {
+                    minX: centerPlaqueX - plaqueW / 2,
+                    maxX: centerPlaqueX + plaqueW / 2,
+                    height: plaqueH,
+                    inset: filetInset,
+                    stroke: filetStroke,
+                    radius: plaqueRadius,
+                    depth: filetDepth
+                };
+                let frame = null;
+                ['left', 'right'].forEach(side => {
+                    const res = createPlaqueFiletGeometry({ ...filetArgs, part: side });
+                    frame = res.frame;
+                    res.geo.translate(0, 0, baseDepth + explodeZ);
+                    const capMesh = new THREE.Mesh(res.geo, matFace);
+                    capMesh.name = `Filete_Remate_${side === 'left' ? 'Izquierdo' : 'Derecho'}`;
+                    capMesh.castShadow = true;
+                    lettersGroup.add(capMesh);
+                });
+                // Solape de 0.8 mm con cada remate para que el filete quede continuo
+                const railX0 = frame.capLeftEnd - 0.8;
+                const railX1 = frame.capRightStart + 0.8;
+                pendingSlab.rails.push(
+                    { y: frame.T - filetStroke / 2, h: filetStroke, d: filetDepth, name: 'Filete_Superior', x0: railX0, x1: railX1, z: baseDepth + explodeZ, radius: 0.5, mat: matFace, group: lettersGroup },
+                    { y: frame.B + filetStroke / 2, h: filetStroke, d: filetDepth, name: 'Filete_Inferior', x0: railX0, x1: railX1, z: baseDepth + explodeZ, radius: 0.5, mat: matFace, group: lettersGroup }
+                );
+            } else {
+                const barGeo = createRoundedBoxGeometry(accentBarW, plaqueH - 8, letterDepth * 0.8, Math.min(plaqueRadius * 0.6, 6));
+                barGeo.translate(centerPlaqueX - plaqueW / 2 + accentBarW / 2 + 5, 0, baseDepth + explodeZ * 0.5);
+                const barMesh = new THREE.Mesh(barGeo, matAccent);
+                barMesh.name = "Barra_Codigo_Dewey";
+                barMesh.castShadow = true;
+                accentsGroup.add(barMesh);
+            }
         }
 
         // Integrar Escudos Institucionales o Cajeados Guía en Placa Wayfinding
         const addPlaqueSideLogo = (key, side) => {
             const isLeftSide = side === 'left';
+            // En la Placa Filete el escudo se separa igual de ambos bordes, por dentro del marco
+            const sideGap = isFiletPlaque ? 12 : null;
             const lx = isLeftSide
-                ? (centerPlaqueX - plaqueW / 2 + accentBarW + 13 + effLogoDia / 2)
-                : (centerPlaqueX + plaqueW / 2 - 10 - effLogoDia / 2);
+                ? (centerPlaqueX - plaqueW / 2 + accentBarW + (sideGap ?? 13) + effLogoDia / 2)
+                : (centerPlaqueX + plaqueW / 2 - (sideGap ?? 10) - effLogoDia / 2);
             const shiftX = 0;
 
             if (logoMode === 'integrated') {
@@ -881,6 +946,11 @@ export async function rebuildSignCAD() {
 
         const assembly = createAngledWedgeAssembly(wedgeW, wedgeH, frontLipZ, backHeightZ);
         assembly.baseGeo.translate(centerWedgeX, 0, 0);
+
+        // Sin el control (p. ej. visor de jefatura) se muestra como va en el escritorio
+        if (document.getElementById('wedge-print-flat-toggle')?.checked) {
+            wedgePrintTiltRad = assembly.alpha;
+        }
 
         const baseMesh = new THREE.Mesh(assembly.baseGeo, matBase);
         baseMesh.name = "Cuna_Ejecutiva_Escritorio_Base";
@@ -1232,7 +1302,7 @@ export async function rebuildSignCAD() {
                 const subMesh = new THREE.Mesh(subGeo, matSubText);
                 subMesh.name = "Subtitulo_Clasificacion_Dewey";
                 accentsGroup.add(subMesh);
-            } else if (cadState.style === 'plaque') {
+            } else if (isPlaqueFamily) {
                 const plaqueLines = splitTextIntoLines(rawText, false);
                 const isMultiLine = plaqueLines.length > 1;
                 const effectiveLetterSize = isMultiLine ? Math.max(12, Math.round(letterSize * 0.78)) : letterSize;
@@ -1353,7 +1423,7 @@ export async function rebuildSignCAD() {
 
     // Desplazamiento fino del texto para el resto de estilos (Placa ya lo integra al centrar sus líneas).
     // Mueve letras y subtítulo como un bloque; en la cuña el desplazamiento vertical sigue la rampa inclinada.
-    if (cadState.style !== 'plaque' && (userTextOffsetX !== 0 || userTextOffsetY !== 0)) {
+    if (!isPlaqueFamily && (userTextOffsetX !== 0 || userTextOffsetY !== 0)) {
         let offsetZ = 0;
         if (cadState.style === 'wedge') {
             const angleDeg = parseFloat(document.getElementById('param-wedge-angle')?.value || 12);
@@ -1384,6 +1454,15 @@ export async function rebuildSignCAD() {
 
     if (pendingSlab) {
         applySlabSegmentation(pendingSlab);
+    }
+
+    // Cuña en orientación de impresión: girar todo el conjunto para que la rampa (letras, marco, escudos,
+    // subtítulo) quede paralela a la cama. La base queda inclinada abajo y se imprime sobre soportes;
+    // el centrado posterior la apoya en Z = 0 por su arista trasera.
+    if (wedgePrintTiltRad !== null) {
+        [baseGroup, accentsGroup, lettersGroup].forEach(grp => {
+            grp.children.forEach(mesh => mesh.geometry.rotateX(-wedgePrintTiltRad));
+        });
     }
 
     // Aplicar Escala Global (si el usuario desea reducir o agrandar proporcionalmente todo el objeto)
@@ -1422,6 +1501,13 @@ export async function rebuildSignCAD() {
         const finalBox = new THREE.Box3().setFromObject(printableRoot);
         const size = new THREE.Vector3();
         finalBox.getSize(size);
+
+        // Cuña enderezada: el cambio de color va donde termina la base (cara de la rampa), no en el grosor de placa
+        if (wedgePrintTiltRad !== null) {
+            const baseTopZ = new THREE.Box3().setFromObject(baseGroup).max.z;
+            const elZSwap = document.getElementById('z-swap-info');
+            if (elZSwap) elZSwap.textContent = `Pausa en Z = ${baseTopZ.toFixed(1)} mm (cuña enderezada, con soportes)`;
+        }
         applySegmentLayout();
         updateCADMetrics(size.x, size.y, size.z);
         scheduleAutoSave();
@@ -1479,15 +1565,19 @@ function applySlabSegmentation(slab) {
         });
 
         // Rieles decorativos cortados exactamente en la costura
+        // (opcional por riel: tramo x0..x1, altura z, radio, material y grupo propios — p. ej. el filete)
         slab.rails.forEach(rail => {
-            const w = part.x1 - part.x0;
-            const g = createRoundedBoxGeometry(w, rail.h, rail.d, 1.5);
-            g.translate((part.x0 + part.x1) / 2, rail.y, slab.depth);
-            const m = new THREE.Mesh(g, slab.matAccent);
+            const rx0 = Math.max(part.x0, rail.x0 ?? -Infinity);
+            const rx1 = Math.min(part.x1, rail.x1 ?? Infinity);
+            const w = rx1 - rx0;
+            if (w < 0.5) return;
+            const g = createRoundedBoxGeometry(w, rail.h, rail.d, rail.radius ?? 1.5);
+            g.translate((rx0 + rx1) / 2, rail.y, rail.z ?? slab.depth);
+            const m = new THREE.Mesh(g, rail.mat ?? slab.matAccent);
             m.name = `${rail.name}_Parte${k + 1}`;
             m.userData.part = k;
             m.castShadow = true;
-            accentsGroup.add(m);
+            (rail.group ?? accentsGroup).add(m);
         });
     });
 
@@ -1656,7 +1746,7 @@ function updateCADMetrics(widthMm, heightMm, depthMm) {
                 : 'p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-snug';
         }
     } else if (isOverBed) {
-        const canSplit = cadState.style === 'plaque' || cadState.style === 'ceiling';
+        const canSplit = cadState.style === 'plaque' || cadState.style === 'plaque_filet' || cadState.style === 'ceiling';
         setAlert(false, `⚠️ Excede cama 25 cm (${Math.max(w, h)} mm)${canSplit ? ' • Activa "División automática por partes"' : ''}`);
     } else {
         setAlert(true, `✅ Cabe en placa de 25 cm (250 mm)`);

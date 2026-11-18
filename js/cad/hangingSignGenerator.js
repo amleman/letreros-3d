@@ -308,7 +308,8 @@ export async function rebuildHangingSignCAD() {
         hangingBracketGroup.visible = true;
         hangingPlatesGroup.visible = true;
         hangingChainsGroup.visible = true;
-        hangingMountGroup.visible = true;
+        // La madera del anaquel cuelga directo de la escena (no de hangingRoot): solo visible en su pestaña
+        hangingMountGroup.visible = cadState.activeWorkspace === 'hanging';
 
         bracketMesh.position.set(0, 0, 0);
         bracketMesh.rotation.set(0, 0, 0);
