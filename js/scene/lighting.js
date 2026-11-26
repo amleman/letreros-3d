@@ -8,11 +8,11 @@ export function setupLighting(scene) {
     lightsGroup.name = "Lighting_Rig";
 
     // 1. Luz Ambiental equilibrada (evita negros puros en caras opuestas)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     lightsGroup.add(ambientLight);
 
     // 2. Luz Principal (Key Light) frontal superior con sombras suaves
-    const keyLight = new THREE.DirectionalLight(0xfff8eb, 1.35);
+    const keyLight = new THREE.DirectionalLight(0xfff8eb, 1.3);
     keyLight.position.set(120, -180, 240);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
@@ -27,8 +27,8 @@ export function setupLighting(scene) {
     keyLight.shadow.bias = -0.0005;
     lightsGroup.add(keyLight);
 
-    // 3. Luz de Relleno (Fill Light) fría y difusa desde el lado opuesto
-    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+    // 3. Luz de Relleno (Fill Light) neutra y difusa desde el lado opuesto
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.5);
     fillLight.position.set(-160, 100, 140);
     lightsGroup.add(fillLight);
 

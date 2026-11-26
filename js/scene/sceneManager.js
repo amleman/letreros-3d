@@ -24,9 +24,9 @@ export function initScene(containerId = 'three-container') {
     }
     activeContainer = container;
 
-    // 1. Escena
+    // 1. Escena (fondo claro para distinguir bordes de placas oscuras/azules)
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a);
+    scene.background = new THREE.Color(0xe2e8f0);
 
     // 2. Cámara (Z-Up coordinada con slicers) con encuadre amplio para cama de 25 cm
     const aspect = container.clientWidth / container.clientHeight;
@@ -99,8 +99,12 @@ export function initScene(containerId = 'three-container') {
     setupLighting(scene);
     buildEnvironment(scene);
 
-    // 8. Event listeners
+    // 8. Event listeners y ResizeObserver para reajustar al plegar/desplegar sidebar o rotar móvil/tablet
     window.addEventListener('resize', onWindowResize);
+    if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => onWindowResize());
+        ro.observe(container);
+    }
 
     // 9. Bucle de animación continuo
     function animate() {

@@ -5,7 +5,7 @@
 import { initScene } from './scene/sceneManager.js';
 import { rebuildSignCAD } from './cad/signGenerator.js';
 import { rebuildHangingSignCAD } from './cad/hangingSignGenerator.js';
-import { exposeGlobalMethods, renderUserPalettesList, renderHangingPlatesList } from './ui/uiController.js';
+import { exposeGlobalMethods, renderUserPalettesList, renderHangingPlatesList, initSidebarController, initAccordionController } from './ui/uiController.js';
 import { updatePitchCalculator } from './ui/calculator.js';
 import { restoreLastSession, renderUserPresetsList } from './config/persistence.js';
 import { initVitrinaPanel } from './ui/vitrinaPanel.js';
@@ -13,7 +13,11 @@ import { initVitrinaPanel } from './ui/vitrinaPanel.js';
 // 1. Exponer métodos a window para compatibilidad con eventos del DOM
 exposeGlobalMethods();
 
-// 2. Inicializar Three.js y entorno 3D (Cama de 25 cm por defecto)
+// 2. Inicializar sidebar desplegable/plegable y acordeón exclusivo (todo plegado al iniciar)
+initSidebarController();
+initAccordionController();
+
+// 3. Inicializar Three.js y entorno 3D (Cama de 25 cm por defecto)
 initScene('three-container');
 
 // 3. Restaurar automáticamente la última sesión guardada (si existe)

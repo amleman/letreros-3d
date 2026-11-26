@@ -48,8 +48,8 @@ export async function ensureFontLoaded(fontKey) {
                 if (parsedFont && parsedFont.glyphs) {
                     cadState.otFonts[fontKey] = parsedFont;
                     if (badge) {
-                        badge.textContent = "UTF-8 Español Activo (ÁÉÍÓÚÑ)";
-                        badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
+                        badge.textContent = "UTF-8";
+                        badge.className = "text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
                     }
                     return parsedFont;
                 }
@@ -63,8 +63,8 @@ export async function ensureFontLoaded(fontKey) {
     const fallbackFontObj = { isCanvasFallback: true, cssFamily: fontMeta.cssFamily };
     cadState.otFonts[fontKey] = fallbackFontObj;
     if (badge) {
-        badge.textContent = "UTF-8 Español Activo (Modo Vectorial)";
-        badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
+        badge.textContent = "UTF-8";
+        badge.className = "text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold";
     }
     return fallbackFontObj;
 }

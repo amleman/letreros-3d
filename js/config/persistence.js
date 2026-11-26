@@ -26,6 +26,9 @@ export function captureCurrentConfig(name = '') {
     const subGapVal = parseFloat(document.getElementById('param-sub-gap')?.value || 0);
 
     const letterSizeVal = parseFloat(document.getElementById('param-letter-size')?.value || 36);
+    const titleSizeEl = document.getElementById('param-title-size');
+    const titleSizeVal = parseFloat(titleSizeEl?.value || letterSizeVal);
+    const titleSizeTouched = !!titleSizeEl?.dataset?.touched;
     const baseDepthVal = parseFloat(document.getElementById('param-base-depth')?.value || 6);
     const letterDepthVal = parseFloat(document.getElementById('param-letter-depth')?.value || 5);
     const bevelVal = parseFloat(document.getElementById('param-bevel')?.value || 0.8);
@@ -73,6 +76,8 @@ export function captureCurrentConfig(name = '') {
     const logoLeft = document.getElementById('logo-left-select')?.value || 'usac';
     const logoRight = document.getElementById('logo-right-select')?.value || 'biblioteca';
     const logoSize = parseFloat(document.getElementById('param-logo-size')?.value || 40);
+    const logoLeftOffsetX = parseFloat(document.getElementById('param-logo-left-x')?.value || 0);
+    const logoRightOffsetX = parseFloat(document.getElementById('param-logo-right-x')?.value || 0);
     const logoShowSeparate = document.getElementById('logo-show-separate-toggle')?.checked ?? true;
 
     const logosConfig = {
@@ -80,6 +85,8 @@ export function captureCurrentConfig(name = '') {
         left: logoLeft,
         right: logoRight,
         size: logoSize,
+        leftOffsetX: logoLeftOffsetX,
+        rightOffsetX: logoRightOffsetX,
         showSeparate: logoShowSeparate
     };
 
@@ -99,10 +106,24 @@ export function captureCurrentConfig(name = '') {
         offset: coEl ? parseFloat(coEl.value) : 0
     };
 
+    const wwEl = document.getElementById('param-wedge-width');
+    const whEl = document.getElementById('param-wedge-height');
+    const wrEl = document.getElementById('param-wedge-radius');
+    const wsEl = document.getElementById('wedge-split-toggle');
+    const wgEl = document.getElementById('param-wedge-gap');
+
     const wedgeConfig = {
         angle: parseFloat(document.getElementById('param-wedge-angle')?.value || 12),
         depth: parseFloat(document.getElementById('param-wedge-depth')?.value || 55),
-        printFlat: document.getElementById('wedge-print-flat-toggle')?.checked ?? true
+        multiline: document.getElementById('wedge-multiline-toggle')?.checked ?? true,
+        printFlat: document.getElementById('wedge-print-flat-toggle')?.checked ?? true,
+        width: wwEl ? parseFloat(wwEl.value) : 200,
+        widthTouched: !!wwEl?.dataset?.touched,
+        height: whEl ? parseFloat(whEl.value) : 72,
+        heightTouched: !!whEl?.dataset?.touched,
+        radius: wrEl ? parseFloat(wrEl.value) : 4,
+        split: wsEl ? wsEl.checked : false,
+        gap: wgEl ? parseFloat(wgEl.value) : 0
     };
 
     return {
@@ -119,6 +140,8 @@ export function captureCurrentConfig(name = '') {
         subSize: subSizeVal,
         subGap: subGapVal,
         letterSize: letterSizeVal,
+        titleSize: titleSizeVal,
+        titleSizeTouched,
         baseDepth: baseDepthVal,
         letterDepth: letterDepthVal,
         bevel: bevelVal,
@@ -180,6 +203,21 @@ export function applyConfig(cfg, rebuild = true) {
     // 3. Geometría
     const lsEl = document.getElementById('param-letter-size');
     if (lsEl && cfg.letterSize != null) lsEl.value = cfg.letterSize;
+
+    const tsEl = document.getElementById('param-title-size');
+    if (tsEl) {
+        if (cfg.titleSize != null) {
+            tsEl.value = cfg.titleSize;
+            if (cfg.titleSizeTouched || (cfg.letterSize != null && cfg.titleSize !== cfg.letterSize)) {
+                tsEl.dataset.touched = 'true';
+            } else {
+                delete tsEl.dataset.touched;
+            }
+        } else {
+            tsEl.value = cfg.letterSize ?? 36;
+            delete tsEl.dataset.touched;
+        }
+    }
 
     const bdEl = document.getElementById('param-base-depth');
     if (bdEl && cfg.baseDepth != null) bdEl.value = cfg.baseDepth;
@@ -284,16 +322,55 @@ export function applyConfig(cfg, rebuild = true) {
         const lzEl = document.getElementById('param-logo-size');
         if (lzEl && cfg.logos.size != null) lzEl.value = cfg.logos.size;
 
+        const llxEl = document.getElementById('param-logo-left-x');
+        if (llxEl) llxEl.value = cfg.logos.leftOffsetX ?? 0;
+
+        const lrxEl = document.getElementById('param-logo-right-x');
+        if (lrxEl) lrxEl.value = cfg.logos.rightOffsetX ?? 0;
+
         const lsepEl = document.getElementById('logo-show-separate-toggle');
         if (lsepEl && typeof cfg.logos.showSeparate === 'boolean') {
             lsepEl.checked = cfg.logos.showSeparate;
         }
     }
 
-    // 8b. Cuña: orientación de impresión (cara de letras paralela a la cama)
-    if (cfg.wedge && typeof cfg.wedge.printFlat === 'boolean') {
+    // 8b. Cuña Inclinada: ángulo, medidas, radio, división por partes, orientación de impresión
+    if (cfg.wedge) {
+        const waEl = document.getElementById('param-wedge-angle');
+        if (waEl && cfg.wedge.angle != null) waEl.value = cfg.wedge.angle;
+
+        const wmEl = document.getElementById('wedge-multiline-toggle');
+        if (wmEl && typeof cfg.wedge.multiline === 'boolean') wmEl.checked = cfg.wedge.multiline;
+
         const wfEl = document.getElementById('wedge-print-flat-toggle');
-        if (wfEl) wfEl.checked = cfg.wedge.printFlat;
+        if (wfEl && typeof cfg.wedge.printFlat === 'boolean') wfEl.checked = cfg.wedge.printFlat;
+
+        const wwEl = document.getElementById('param-wedge-width');
+        if (wwEl && cfg.wedge.width != null) {
+            wwEl.value = cfg.wedge.width;
+            if (cfg.wedge.widthTouched) wwEl.dataset.touched = 'true';
+            else delete wwEl.dataset.touched;
+        }
+
+        const whEl = document.getElementById('param-wedge-height');
+        if (whEl && cfg.wedge.height != null) {
+            whEl.value = cfg.wedge.height;
+            if (cfg.wedge.heightTouched) whEl.dataset.touched = 'true';
+            else delete whEl.dataset.touched;
+        }
+
+        const wrEl = document.getElementById('param-wedge-radius');
+        if (wrEl && cfg.wedge.radius != null) wrEl.value = cfg.wedge.radius;
+
+        const wsEl = document.getElementById('wedge-split-toggle');
+        const wControls = document.getElementById('wedge-split-controls');
+        if (wsEl && typeof cfg.wedge.split === 'boolean') {
+            wsEl.checked = cfg.wedge.split;
+            if (wControls) wControls.classList.toggle('hidden', !cfg.wedge.split);
+        }
+
+        const wgEl = document.getElementById('param-wedge-gap');
+        if (wgEl && cfg.wedge.gap != null) wgEl.value = cfg.wedge.gap;
     }
 
     // 9. Opciones de Colgante Techo
@@ -464,7 +541,7 @@ export function renderUserPresetsList() {
             plaque: 'Placa Wayfinding',
             plaque_filet: 'Placa Filete',
             shelf_clip: 'Canto Anaquel',
-            wedge: 'Cuña 60°',
+            wedge: 'Cuña Inclinada',
             ceiling: 'Colgante Techo'
         };
 

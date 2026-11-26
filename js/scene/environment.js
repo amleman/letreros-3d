@@ -17,8 +17,8 @@ function createBedTexture(isWarning = false) {
     canvas.height = 1024;
     const ctx = canvas.getContext('2d');
 
-    // Fondo oscuro tipo lámina PEI texturizada
-    ctx.fillStyle = '#0f172a';
+    // Fondo claro técnico tipo lámina satinada
+    ctx.fillStyle = '#cfd8e3';
     ctx.fillRect(0, 0, 1024, 1024);
 
     // Cuadrícula fina (cada 10 mm en escala 1024px / 250mm => ~41px)
@@ -27,7 +27,7 @@ function createBedTexture(isWarning = false) {
     const pxPerMm = 1024 / totalMm;
 
     // Líneas secundarias (cada 10 mm)
-    ctx.strokeStyle = '#1e293b';
+    ctx.strokeStyle = '#bcc7d6';
     ctx.lineWidth = 1;
     for (let mm = 0; mm <= totalMm; mm += stepMm) {
         const p = Math.round(mm * pxPerMm);
@@ -43,7 +43,7 @@ function createBedTexture(isWarning = false) {
     }
 
     // Líneas principales (cada 50 mm / 5 cm)
-    ctx.strokeStyle = isWarning ? '#ef4444' : '#334155';
+    ctx.strokeStyle = isWarning ? '#ef4444' : '#94a3b8';
     ctx.lineWidth = 2.5;
     for (let mm = 0; mm <= totalMm; mm += 50) {
         const p = Math.round(mm * pxPerMm);
@@ -59,7 +59,7 @@ function createBedTexture(isWarning = false) {
     }
 
     // Ejes centrales (0,0)
-    ctx.strokeStyle = isWarning ? '#f87171' : '#f59e0b';
+    ctx.strokeStyle = isWarning ? '#dc2626' : '#d97706';
     ctx.lineWidth = 3;
     const centerPx = 512;
     ctx.beginPath();
@@ -73,18 +73,18 @@ function createBedTexture(isWarning = false) {
     ctx.stroke();
 
     // Borde perimetral de 250 x 250 mm
-    ctx.strokeStyle = isWarning ? '#dc2626' : '#f59e0b';
+    ctx.strokeStyle = isWarning ? '#dc2626' : '#d97706';
     ctx.lineWidth = 6;
     ctx.strokeRect(4, 4, 1016, 1016);
 
     // Marcas de escala y texto impreso en la cama
-    ctx.fillStyle = isWarning ? '#fca5a5' : '#fbbf24';
+    ctx.fillStyle = isWarning ? '#b91c1c' : '#334155';
     ctx.font = 'bold 22px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('BAMBU / PRUSA • 250 × 250 mm (25 cm²) • CERO MÁXIMO', 512, 42);
 
     ctx.font = '16px monospace';
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = '#475569';
     ctx.fillText('-125 mm', 60, 504);
     ctx.fillText('+125 mm', 960, 504);
     ctx.fillText('+125 mm', 512, 75);
@@ -156,9 +156,9 @@ export function buildEnvironment(scene) {
         borderGeo.translate(0, 0, -2.0);
 
         const borderMat = new THREE.MeshStandardMaterial({
-            color: 0x334155,
-            metalness: 0.7,
-            roughness: 0.35
+            color: 0x94a3b8,
+            metalness: 0.45,
+            roughness: 0.4
         });
         bedBorderMesh = new THREE.Mesh(borderGeo, borderMat);
         bedBorderMesh.name = "Borde_Placa_Acero";

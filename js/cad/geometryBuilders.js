@@ -814,79 +814,185 @@ export function createShelfClipAssembly(width, height, baseDepth, shelfLipDepth 
 }
 
 /**
- * ESTILO 6 REDISEÑADO: Cuña Ejecutiva de Escritorio (Menos inclinada para escritorios de Coordinadores y Jefatura)
- * Ángulo suave regulable (por defecto 12°), con zócalo frontal biselado, marco perimetral y barras ejecutivas laterales.
+ * Sólido de cuña inclinada en [x0, x1] × [-hh, hh], con esquinas redondeadas opcionales
+ * a izquierda/derecha, base plana en z = zBottom y rampa superior z = frontLipZ + (y + hh) * tanAlpha.
  */
-export function createAngledWedgeAssembly(width, height, frontLipZ = 4.5, backHeightZ = 16.0) {
+export function createWedgeSolidGeometry(x0, x1, hh, radius, roundLeft, roundRight, zBottom, frontLipZ, tanAlpha) {
+    const halfSpan = (x1 - x0) / 2;
+    const r = Math.min(Math.max(0, radius), halfSpan - 0.5, hh - 0.5);
+    const rl = roundLeft && r >= 0.5 ? r : 0;
+    const rr = roundRight && r >= 0.5 ? r : 0;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(x0 + rl, -hh);
+    shape.lineTo(x1 - rr, -hh);
+    if (rr) shape.absarc(x1 - rr, -hh + rr, rr, -Math.PI / 2, 0, false);
+    shape.lineTo(x1, hh - rr);
+    if (rr) shape.absarc(x1 - rr, hh - rr, rr, 0, Math.PI / 2, false);
+    shape.lineTo(x0 + rl, hh);
+    if (rl) shape.absarc(x0 + rl, hh - rl, rl, Math.PI / 2, Math.PI, false);
+    shape.lineTo(x0, -hh + rl);
+    if (rl) shape.absarc(x0 + rl, -hh + rl, rl, Math.PI, Math.PI * 1.5, false);
+    shape.closePath();
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        steps: 1,
+        depth: 1,
+        bevelEnabled: false,
+        curveSegments: 16
+    });
+
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        if (pos.getZ(i) > 0.5) {
+            const y = pos.getY(i);
+            pos.setZ(i, frontLipZ + (y + hh) * tanAlpha);
+        } else {
+            pos.setZ(i, zBottom);
+        }
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    return geo;
+}
+
+/**
+ * Marco rectangular limpio (esquinas rectas) para cuñas con radio < 2 mm
+ */
+function createSharpWedgeFrameGeo({ minX, maxX, height, inset = 2.5, stroke = 2.2, depth = 1.3, part = 'full' }) {
+    const L = minX + inset;
+    const R = maxX - inset;
+    const T = height / 2 - inset;
+    const B = -T;
+    const Ti = T - stroke;
+    const Bi = B + stroke;
+    const capLeftEnd = L + stroke + 3;
+    const capRightStart = R - stroke - 3;
+
+    const shape = new THREE.Shape();
+    if (part === 'full') {
+        shape.moveTo(L, B);
+        shape.lineTo(R, B);
+        shape.lineTo(R, T);
+        shape.lineTo(L, T);
+        shape.closePath();
+
+        const hole = new THREE.Path();
+        hole.moveTo(L + stroke, Bi);
+        hole.lineTo(R - stroke, Bi);
+        hole.lineTo(R - stroke, Ti);
+        hole.lineTo(L + stroke, Ti);
+        hole.closePath();
+        shape.holes.push(hole);
+    } else if (part === 'left') {
+        shape.moveTo(capLeftEnd, T);
+        shape.lineTo(L, T);
+        shape.lineTo(L, B);
+        shape.lineTo(capLeftEnd, B);
+        shape.lineTo(capLeftEnd, Bi);
+        shape.lineTo(L + stroke, Bi);
+        shape.lineTo(L + stroke, Ti);
+        shape.lineTo(capLeftEnd, Ti);
+        shape.closePath();
+    } else {
+        shape.moveTo(capRightStart, T);
+        shape.lineTo(R, T);
+        shape.lineTo(R, B);
+        shape.lineTo(capRightStart, B);
+        shape.lineTo(capRightStart, Bi);
+        shape.lineTo(R - stroke, Bi);
+        shape.lineTo(R - stroke, Ti);
+        shape.lineTo(capRightStart, Ti);
+        shape.closePath();
+    }
+
+    const geo = new THREE.ExtrudeGeometry(shape, { steps: 1, depth, bevelEnabled: false });
+    geo.computeVertexNormals();
+    return {
+        geo,
+        frame: { L, R, T, B, stroke, capLeftEnd, capRightStart }
+    };
+}
+
+/**
+ * ESTILO 6 REDISEÑADO: Cuña Inclinada (hasta 45°, radio de esquinas configurable, sin barras laterales)
+ */
+export function createAngledWedgeAssembly(width, height, frontLipZ = 4.5, backHeightZ = 16.0, options = {}) {
+    const { cornerRadius = 0, forSegmentation = false } = options;
     const hw = width / 2;
     const hy = height / 2;
 
-    const profile = new THREE.Shape();
-    profile.moveTo(-hy, 0);          // Base delantera en el escritorio (Z = 0)
-    profile.lineTo(hy, 0);           // Base trasera en el escritorio (Z = 0)
-    profile.lineTo(hy, backHeightZ); // Altura trasera suave
-    profile.lineTo(-hy, frontLipZ);  // Labio frontal ejecutivo
-    profile.closePath();
-
-    const extruded = new THREE.ExtrudeGeometry(profile, {
-        depth: width,
-        bevelEnabled: false
-    });
-
-    // Mapear coordenadas para coincidir con el sistema CAD global:
-    const pos = extruded.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-        const x_orig = pos.getX(i);
-        const y_orig = pos.getY(i);
-        const z_orig = pos.getZ(i);
-
-        pos.setX(i, z_orig - hw);
-        pos.setY(i, x_orig);
-        pos.setZ(i, y_orig);
-    }
-    pos.needsUpdate = true;
-    extruded.computeVertexNormals();
-
     const tanAlpha = (backHeightZ - frontLipZ) / height;
     const alpha = Math.atan(tanAlpha);
-
-    // Marco ejecutivo perimetral + barras laterales de distinción sobre la rampa inclinada
-    const frameT = 2.2;
-    const borderShape = new THREE.Shape();
-    borderShape.moveTo(-hw + 2.5, -hy + 2);
-    borderShape.lineTo(hw - 2.5, -hy + 2);
-    borderShape.lineTo(hw - 2.5, hy - 2);
-    borderShape.lineTo(-hw + 2.5, hy - 2);
-    borderShape.closePath();
-
-    const borderHole = new THREE.Path();
-    borderHole.moveTo(-hw + 2.5 + frameT, -hy + 2 + frameT);
-    borderHole.lineTo(hw - 2.5 - frameT, -hy + 2 + frameT);
-    borderHole.lineTo(hw - 2.5 - frameT, hy - 2 - frameT);
-    borderHole.lineTo(-hw + 2.5 + frameT, hy - 2 - frameT);
-    borderHole.closePath();
-    borderShape.holes.push(borderHole);
-
-    const outerFrameGeo = new THREE.ExtrudeGeometry(borderShape, {
-        depth: 1.3,
-        bevelEnabled: false
-    });
-
-    // Barras ejecutivas laterales izquierda y derecha (estilo placa de dirección/coordinación)
-    const sideBarW = 4.5;
-    const sideBarH = Math.max(12, height - 14);
-    const leftBarGeo = createRoundedBoxGeometry(sideBarW, sideBarH, 1.6, 1.5);
-    leftBarGeo.translate(-hw + 8.5, 0, 0);
-    const rightBarGeo = createRoundedBoxGeometry(sideBarW, sideBarH, 1.6, 1.5);
-    rightBarGeo.translate(hw - 8.5, 0, 0);
-
-    const frameGeo = mergeGeometriesManually([outerFrameGeo, leftBarGeo, rightBarGeo]);
-    frameGeo.rotateX(alpha);
+    const rampH = height / Math.cos(alpha);
     const centerRampZ = frontLipZ + hy * tanAlpha;
+
+    const inset = 2.5;
+    const stroke = 2.2;
+    const frameDepth = 1.3;
+    const useRoundedFrame = cornerRadius >= 2;
+
+    const buildFramePart = (part) => {
+        if (useRoundedFrame) {
+            return createPlaqueFiletGeometry({
+                minX: -hw,
+                maxX: hw,
+                height: rampH,
+                inset,
+                stroke,
+                radius: Math.min(cornerRadius, hw - 1, rampH / 2 - 1),
+                depth: frameDepth,
+                part
+            });
+        }
+        return createSharpWedgeFrameGeo({
+            minX: -hw,
+            maxX: hw,
+            height: rampH,
+            inset,
+            stroke,
+            depth: frameDepth,
+            part
+        });
+    };
+
+    if (forSegmentation) {
+        let frame = null;
+        const frameCaps = ['left', 'right'].map(side => {
+            const res = buildFramePart(side);
+            frame = res.frame;
+            res.geo.rotateX(alpha);
+            res.geo.translate(0, 0, centerRampZ);
+            return { geo: res.geo, side };
+        });
+
+        const railX0 = frame.capLeftEnd - 0.8;
+        const railX1 = frame.capRightStart + 0.8;
+        const rails = [
+            { sY: frame.T - stroke / 2, h: stroke, d: frameDepth, x0: railX0, x1: railX1, rotX: alpha, centerZ: centerRampZ, radius: 0.3, name: 'Marco_Cuna_Superior' },
+            { sY: frame.B + stroke / 2, h: stroke, d: frameDepth, x0: railX0, x1: railX1, rotX: alpha, centerZ: centerRampZ, radius: 0.3, name: 'Marco_Cuna_Inferior' }
+        ];
+
+        return {
+            alpha,
+            tanAlpha,
+            frontLipZ,
+            backHeightZ,
+            hy,
+            rampH,
+            cornerR: cornerRadius,
+            frameCaps,
+            rails
+        };
+    }
+
+    const baseGeo = createWedgeSolidGeometry(-hw, hw, hy, cornerRadius, true, true, 0, frontLipZ, tanAlpha);
+    const { geo: frameGeo } = buildFramePart('full');
+    frameGeo.rotateX(alpha);
     frameGeo.translate(0, 0, centerRampZ);
 
     return {
-        baseGeo: extruded,
+        baseGeo,
         frameGeo,
         alpha,
         tanAlpha,

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createWedgeSolidGeometry } from './geometryBuilders.js';
 
 /**
  * DIVISIÓN AUTOMÁTICA POR PARTES PARA CAMAS DE 25 cm (Bambu Lab X1 Carbon)
@@ -231,6 +232,44 @@ export function buildSegmentedSlab({ minX, maxX, height, depth, radius, cuts, cl
         }
 
         // Lengüetas de cola de milano planas sobre la cama, hacia la parte siguiente
+        if (!isLast) {
+            joints.forEach(yc => geos.push(extrude(tabShape(x1, yc), jointZ, 0)));
+        }
+
+        parts.push({ geos, x0, x1 });
+    }
+    return parts;
+}
+
+/**
+ * Genera las geometrías de cada parte de una cuña inclinada (centrada en Y = 0),
+ * manteniendo las colas de milano ocultas en la base plana y la rampa continua por encima.
+ * @returns {Array<{geos: THREE.BufferGeometry[], x0: number, x1: number}>}
+ */
+export function buildSegmentedWedge({ minX, maxX, height, frontLipZ, tanAlpha, radius = 0, cuts, clearance = JOINT.clearance }) {
+    const hh = height / 2;
+    const edges = [minX, ...cuts, maxX];
+    const parts = [];
+    const r = radius >= 0.5 ? Math.min(radius, hh - 0.5) : 0;
+    const jointZ = Math.max(1.2, Math.min(frontLipZ * 0.45, frontLipZ - 1.8));
+    const pocketTop = jointZ + clearance;
+    const joints = jointPositions(height);
+
+    for (let k = 0; k < edges.length - 1; k++) {
+        const x0 = edges[k];
+        const x1 = edges[k + 1];
+        const isFirst = k === 0;
+        const isLast = k === edges.length - 2;
+        const geos = [];
+        const rr = r >= 0.5 ? Math.min(r, (x1 - x0) / 2 - 0.5) : 0;
+
+        if (isFirst) {
+            geos.push(createWedgeSolidGeometry(x0, x1, hh, rr, true, isLast, 0, frontLipZ, tanAlpha));
+        } else {
+            geos.push(extrude(partOutline(x0, x1, hh, rr, false, isLast, joints, clearance), pocketTop + JOINT.overlap, 0));
+            geos.push(createWedgeSolidGeometry(x0, x1, hh, rr, false, isLast, pocketTop, frontLipZ, tanAlpha));
+        }
+
         if (!isLast) {
             joints.forEach(yc => geos.push(extrude(tabShape(x1, yc), jointZ, 0)));
         }

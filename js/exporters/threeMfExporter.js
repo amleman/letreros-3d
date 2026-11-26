@@ -87,10 +87,10 @@ export async function exportSegmentParts3MF() {
  * con el mismo espesor de la placa actual, para probar resistencia y ajuste antes de imprimir el letrero.
  */
 export async function exportJointTest3MF() {
-    const isCeiling = cadState.style === 'ceiling';
-    const height = parseFloat(document.getElementById(isCeiling ? 'param-ceiling-height' : 'param-plaque-height')?.value) || 70;
+    const prefix = cadState.style === 'ceiling' ? 'ceiling' : (cadState.style === 'wedge' ? 'wedge' : 'plaque');
+    const height = parseFloat(document.getElementById(`param-${prefix}-height`)?.value) || 70;
     const depth = parseFloat(document.getElementById('param-base-depth')?.value) || 6;
-    const radius = parseFloat(document.getElementById('param-plaque-radius')?.value) || 8;
+    const radius = parseFloat(document.getElementById(cadState.style === 'wedge' ? 'param-wedge-radius' : 'param-plaque-radius')?.value) || 8;
 
     const pieces = buildJointTestCoupons({ height, depth, radius });
     const items = pieces.map(p => ({ name: p.name, meshes: p.geos.map(g => new THREE.Mesh(g)), ignoreRoot: true }));

@@ -50,23 +50,124 @@ export function showToast(title, desc) {
 }
 
 /**
- * Modal Guía de Bambu Studio (Pintar en AMS)
+ * Menú desplegable de STL en el dock inferior
  */
-export function toggleBambuModal(show) {
-    const modal = document.getElementById('bambu-modal');
-    if (modal) {
-        modal.classList.toggle('hidden', !show);
-    }
+export function toggleStlMenu(forceState) {
+    const menu = document.getElementById('stl-export-menu');
+    const btn = document.getElementById('btn-stl-menu');
+    if (!menu) return;
+    const show = typeof forceState === 'boolean' ? forceState : menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', !show);
+    if (btn) btn.setAttribute('aria-expanded', String(show));
 }
 
 /**
- * Modal / Panel Desplegable de Consejos Técnicos (Las 3 tarjetas de la Imagen 1)
+ * Sidebar desplegable/plegable (columna fija en desktop >= 1024px, drawer modal en móvil/tablet)
  */
-export function toggleTechTipsModal(show) {
-    const modal = document.getElementById('tech-tips-modal');
-    if (modal) {
-        modal.classList.toggle('hidden', !show);
+const desktopSidebarMq = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null;
+let isSidebarOpen = true;
+
+function syncSidebarLayout() {
+    const shell = document.getElementById('sidebar-shell');
+    const toggleBtn = document.getElementById('btn-toggle-sidebar');
+    const floatingBtn = document.getElementById('btn-open-sidebar-floating');
+    const header = document.getElementById('app-header');
+    const viewer = document.getElementById('viewer-section');
+    if (!shell) return;
+
+    const isDesktop = desktopSidebarMq ? desktopSidebarMq.matches : true;
+    shell.dataset.open = String(isSidebarOpen);
+
+    if (isDesktop) {
+        shell.removeAttribute('role');
+        shell.removeAttribute('aria-modal');
+        if (header) header.inert = false;
+        if (viewer) viewer.inert = false;
+    } else {
+        shell.setAttribute('role', 'dialog');
+        if (isSidebarOpen) {
+            shell.setAttribute('aria-modal', 'true');
+            if (header) header.inert = true;
+            if (viewer) viewer.inert = true;
+        } else {
+            shell.removeAttribute('aria-modal');
+            if (header) header.inert = false;
+            if (viewer) viewer.inert = false;
+        }
     }
+
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(isSidebarOpen));
+    if (floatingBtn) floatingBtn.classList.toggle('hidden', isSidebarOpen);
+
+    requestAnimationFrame(() => onWindowResize());
+    setTimeout(() => onWindowResize(), 260);
+}
+
+export function toggleSidebar(forceState) {
+    const wasOpen = isSidebarOpen;
+    isSidebarOpen = typeof forceState === 'boolean' ? forceState : !isSidebarOpen;
+    syncSidebarLayout();
+
+    const isDesktop = desktopSidebarMq ? desktopSidebarMq.matches : true;
+    if (!isDesktop) {
+        if (isSidebarOpen && !wasOpen) {
+            document.getElementById('btn-close-sidebar')?.focus({ preventScroll: true });
+        } else if (!isSidebarOpen && wasOpen) {
+            document.getElementById('btn-toggle-sidebar')?.focus({ preventScroll: true });
+        }
+    }
+}
+
+export function initSidebarController() {
+    const isDesktop = desktopSidebarMq ? desktopSidebarMq.matches : true;
+    // En desktop inicia desplegado; en móvil y tablet arranca plegado para priorizar el visor 3D
+    isSidebarOpen = isDesktop;
+    syncSidebarLayout();
+
+    if (desktopSidebarMq) {
+        desktopSidebarMq.addEventListener('change', (e) => {
+            isSidebarOpen = e.matches;
+            syncSidebarLayout();
+        });
+    }
+
+    // Cerrar drawer móvil/tablet con Escape o deslizando a la izquierda
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isSidebarOpen && desktopSidebarMq && !desktopSidebarMq.matches) {
+            toggleSidebar(false);
+        }
+    });
+
+    const panel = document.getElementById('sidebar-panel');
+    if (panel) {
+        let startX = 0;
+        let startY = 0;
+        panel.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+        panel.addEventListener('touchend', (e) => {
+            if (!isSidebarOpen || (desktopSidebarMq && desktopSidebarMq.matches)) return;
+            if (e.changedTouches.length !== 1) return;
+            const dx = e.changedTouches[0].clientX - startX;
+            const dy = e.changedTouches[0].clientY - startY;
+            if (dx < -65 && Math.abs(dy) < 50) {
+                toggleSidebar(false);
+            }
+        }, { passive: true });
+    }
+
+    // Cerrar menú STL al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('stl-export-menu');
+        const btn = document.getElementById('btn-stl-menu');
+        if (menu && !menu.classList.contains('hidden')) {
+            if (!menu.contains(e.target) && !btn?.contains(e.target)) {
+                toggleStlMenu(false);
+            }
+        }
+    });
 }
 
 /**
@@ -277,36 +378,66 @@ export async function downloadAllFontProofsBatch() {
     showToast('¡Descarga completada!', 'Se descargaron todas las plantillas PNG para imprimir en papel');
 }
 
-/**
- * Acordeón dinámico para compactar/expandir secciones del panel izquierdo
- */
-export function toggleSectionAccordion(secId) {
-    const content = document.getElementById(`content-${secId}`);
-    const icon = document.getElementById(`icon-${secId}`);
-    if (!content) return;
+const ACCORDION_IDS = ['sec-texto', 'sec-estilo', 'sec-medidas', 'sec-colores', 'sec-presets'];
 
-    const isHidden = content.classList.contains('hidden');
-    content.classList.toggle('hidden', !isHidden);
-    if (icon) {
-        icon.classList.toggle('rotate-180', !isHidden);
+/**
+ * Acordeón exclusivo nativo (<details name="cad-params">) con fallback para navegadores sin `details[name]`
+ */
+export function initAccordionController() {
+    const container = document.getElementById('view-design');
+    if (!container) return;
+
+    // Asegurar estado inicial 100% plegado y modo exclusivo activo
+    collapseAllSections();
+
+    const supportsExclusiveName = Object.hasOwn(HTMLDetailsElement.prototype, 'name');
+    container.addEventListener('toggle', (event) => {
+        const details = event.target;
+        if (!(details instanceof HTMLDetailsElement) || !details.classList.contains('cad-accordion-item')) return;
+
+        if (!details.open) {
+            // Si el usuario plegó manualmente tras "Desplegar todo" y queda <= 1 abierto, restaurar exclusividad
+            const openCount = ACCORDION_IDS.filter(id => document.getElementById(id)?.open).length;
+            if (openCount <= 1) {
+                ACCORDION_IDS.forEach(id => document.getElementById(id)?.setAttribute('name', 'cad-params'));
+            }
+            return;
+        }
+
+        if (!supportsExclusiveName && details.hasAttribute('name')) {
+            const groupName = details.getAttribute('name');
+            for (const other of container.querySelectorAll(`details[name="${CSS.escape(groupName)}"]`)) {
+                if (other !== details) other.open = false;
+            }
+        }
+    }, { capture: true });
+}
+
+export function toggleSectionAccordion(secId) {
+    const details = document.getElementById(secId);
+    if (details instanceof HTMLDetailsElement) {
+        details.open = !details.open;
     }
 }
 
 export function collapseAllSections() {
-    ['sec-texto', 'sec-tipografia', 'sec-estilo', 'sec-medidas', 'sec-colores'].forEach(id => {
-        const content = document.getElementById(`content-${id}`);
-        const icon = document.getElementById(`icon-${id}`);
-        if (content) content.classList.add('hidden');
-        if (icon) icon.classList.add('rotate-180');
+    ACCORDION_IDS.forEach(id => {
+        const details = document.getElementById(id);
+        if (details instanceof HTMLDetailsElement) {
+            details.setAttribute('name', 'cad-params');
+            details.open = false;
+        }
     });
 }
 
 export function expandAllSections() {
-    ['sec-texto', 'sec-tipografia', 'sec-estilo', 'sec-medidas', 'sec-colores'].forEach(id => {
-        const content = document.getElementById(`content-${id}`);
-        const icon = document.getElementById(`icon-${id}`);
-        if (content) content.classList.remove('hidden');
-        if (icon) icon.classList.remove('rotate-180');
+    ACCORDION_IDS.forEach(id => {
+        const details = document.getElementById(id);
+        if (details instanceof HTMLDetailsElement) {
+            // Retirar `name` temporalmente para permitir todas abiertas al mismo tiempo
+            details.removeAttribute('name');
+            details.open = true;
+        }
     });
 }
 
@@ -362,9 +493,11 @@ export function toggleWireframe() {
  * 'pitch' (Calculadora de Horas)
  */
 export function switchMainTab(tab) {
+    const workspaceCad = document.getElementById('workspace-cad');
     const viewDesign = document.getElementById('view-design');
     const viewHanging = document.getElementById('view-hanging');
     const viewPitch = document.getElementById('view-pitch');
+    const accordionControls = document.getElementById('sidebar-accordion-controls');
 
     const tabDesign = document.getElementById('tab-design');
     const tabHanging = document.getElementById('tab-hanging');
@@ -372,7 +505,7 @@ export function switchMainTab(tab) {
 
     // Desactivar todos los botones de pestaña
     [tabDesign, tabHanging, tabPitch].forEach(btn => {
-        if (btn) btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white";
+        if (btn) btn.className = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white";
     });
 
     // Ocultar todas las vistas
@@ -381,19 +514,24 @@ export function switchMainTab(tab) {
     viewPitch?.classList.add('hidden');
 
     if (tab === 'design') {
+        workspaceCad?.classList.remove('hidden');
         viewDesign?.classList.remove('hidden');
-        if (tabDesign) tabDesign.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
+        accordionControls?.classList.remove('hidden');
+        if (tabDesign) tabDesign.className = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
         setSceneWorkspace('tabletop');
         rebuildSignCAD();
     } else if (tab === 'hanging') {
+        workspaceCad?.classList.remove('hidden');
         viewHanging?.classList.remove('hidden');
-        if (tabHanging) tabHanging.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow";
+        accordionControls?.classList.add('hidden');
+        if (tabHanging) tabHanging.className = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow";
         setSceneWorkspace('hanging');
         rebuildHangingSignCAD();
         renderHangingPlatesList();
     } else if (tab === 'pitch') {
+        workspaceCad?.classList.add('hidden');
         viewPitch?.classList.remove('hidden');
-        if (tabPitch) tabPitch.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
+        if (tabPitch) tabPitch.className = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow";
     }
 
     onWindowResize();
@@ -906,7 +1044,16 @@ export function setQuickPreset(text, subtext, styleName, showSub, fontKey, palet
     // Restablecer auto-ajuste de dimensiones y escala al 100% al cambiar de preset
     const scaleEl = document.getElementById('param-global-scale');
     if (scaleEl) scaleEl.value = 100;
-    ['param-plaque-width', 'param-plaque-height', 'param-ceiling-width', 'param-ceiling-height'].forEach(id => {
+    const titleSizeEl = document.getElementById('param-title-size');
+    if (titleSizeEl) {
+        delete titleSizeEl.dataset.touched;
+        titleSizeEl.value = document.getElementById('param-letter-size')?.value || 36;
+    }
+    ['param-logo-left-x', 'param-logo-right-x'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 0;
+    });
+    ['param-plaque-width', 'param-plaque-height', 'param-ceiling-width', 'param-ceiling-height', 'param-wedge-width', 'param-wedge-height'].forEach(id => {
         const el = document.getElementById(id);
         if (el) delete el.dataset.touched;
     });
@@ -1021,6 +1168,24 @@ export function resetTextOffsets() {
     triggerRebuild();
 }
 
+export function resetLogoOffsets() {
+    ['param-logo-left-x', 'param-logo-right-x'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 0;
+    });
+    triggerRebuild();
+}
+
+export function resetTitleSize() {
+    const titleSizeEl = document.getElementById('param-title-size');
+    const plateYEl = document.getElementById('param-letter-size');
+    if (titleSizeEl) {
+        delete titleSizeEl.dataset.touched;
+        if (plateYEl) titleSizeEl.value = plateYEl.value;
+    }
+    triggerRebuild();
+}
+
 export function shareCurrentToVisor() {
     const config = captureCurrentConfig();
     const hash = encodeConfigToUrlHash(config);
@@ -1071,8 +1236,8 @@ export function sharePresetToVisor(id) {
  */
 export function exposeGlobalMethods() {
     window.showToast = showToast;
-    window.toggleBambuModal = toggleBambuModal;
-    window.toggleTechTipsModal = toggleTechTipsModal;
+    window.toggleSidebar = toggleSidebar;
+    window.toggleStlMenu = toggleStlMenu;
     window.toggleExplodeView = toggleExplodeView;
     window.toggleShelfContext = toggleShelfContext;
     window.toggleWireframe = toggleWireframe;
@@ -1154,5 +1319,7 @@ export function exposeGlobalMethods() {
     window.sharePresetToVisor = sharePresetToVisor;
     window.shareCurrentToVisor = shareCurrentToVisor;
     window.resetTextOffsets = resetTextOffsets;
+    window.resetLogoOffsets = resetLogoOffsets;
+    window.resetTitleSize = resetTitleSize;
     window.renderUserPresetsList = renderUserPresetsList;
 }

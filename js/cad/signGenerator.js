@@ -25,7 +25,7 @@ import {
 } from './logoBuilder.js';
 import { printableRoot, baseGroup, accentsGroup, lettersGroup } from '../scene/sceneManager.js';
 import { updateBedAlertStatus, setBedLayout } from '../scene/environment.js';
-import { planCuts, buildSegmentedSlab, maxSegmentWidth, JOINT } from './segmentation.js';
+import { planCuts, buildSegmentedSlab, buildSegmentedWedge, maxSegmentWidth, JOINT } from './segmentation.js';
 import { scheduleAutoSave } from '../config/persistence.js';
 
 /**
@@ -150,14 +150,20 @@ export async function rebuildSignCAD() {
     const stagger = document.getElementById('stagger-toggle')?.checked ?? true;
     const includeRail = document.getElementById('stand-rail-toggle')?.checked ?? true;
 
-    const letterSize = parseFloat(document.getElementById('param-letter-size')?.value || 36);
+    const plateYSize = parseFloat(document.getElementById('param-letter-size')?.value || 36);
+    const titleSizeEl = document.getElementById('param-title-size');
+    if (titleSizeEl && !titleSizeEl.dataset.touched) {
+        titleSizeEl.value = plateYSize;
+    }
+    const titleSize = titleSizeEl ? parseFloat(titleSizeEl.value) : plateYSize;
+    const letterSize = titleSize;
     const baseDepth = parseFloat(document.getElementById('param-base-depth')?.value || 6);
     const letterDepth = parseFloat(document.getElementById('param-letter-depth')?.value || 5);
     const bevelSize = parseFloat(document.getElementById('param-bevel')?.value || 0.8);
     const spacing = parseFloat(document.getElementById('param-spacing')?.value || 4);
 
     // Actualizar etiquetas numéricas en UI
-    updateParamLabels(letterSize, baseDepth, letterDepth, bevelSize, spacing);
+    updateParamLabels(plateYSize, titleSize, baseDepth, letterDepth, bevelSize, spacing);
 
     // Desplazamiento fino manual del texto (Horizontal X y Vertical Y)
     const userTextOffsetX = parseFloat(document.getElementById('param-text-offset-x')?.value || 0);
@@ -199,6 +205,7 @@ export async function rebuildSignCAD() {
     if (subOptionsPanel) {
         subOptionsPanel.classList.toggle('hidden', !showSub);
     }
+    document.getElementById('sub-metrics-row')?.classList.toggle('hidden', !showSub);
 
     // Desplazamiento independiente del subtítulo (se suma al desplazamiento de todo el texto)
     document.getElementById('sub-offset-row')?.classList.toggle('hidden', !showSub);
@@ -314,10 +321,16 @@ export async function rebuildSignCAD() {
     const leftLogoKey = document.getElementById('logo-left-select')?.value || 'usac';
     const rightLogoKey = document.getElementById('logo-right-select')?.value || 'biblioteca';
     const logoSizeVal = parseFloat(document.getElementById('param-logo-size')?.value || 40);
+    const logoLeftOffsetX = parseFloat(document.getElementById('param-logo-left-x')?.value || 0);
+    const logoRightOffsetX = parseFloat(document.getElementById('param-logo-right-x')?.value || 0);
     const showSeparateOnBed = document.getElementById('logo-show-separate-toggle')?.checked ?? true;
 
     const lblLogoSize = document.getElementById('lbl-logo-size');
     if (lblLogoSize) lblLogoSize.textContent = `${Math.round(logoSizeVal)} mm`;
+    const lblLogoLeftX = document.getElementById('lbl-logo-left-x');
+    if (lblLogoLeftX) lblLogoLeftX.textContent = fmtMm(logoLeftOffsetX);
+    const lblLogoRightX = document.getElementById('lbl-logo-right-x');
+    if (lblLogoRightX) lblLogoRightX.textContent = fmtMm(logoRightOffsetX);
     const logoControlsSubpanel = document.getElementById('logo-active-controls');
     if (logoControlsSubpanel) logoControlsSubpanel.classList.toggle('hidden', logoMode === 'none');
     const separateToggleRow = document.getElementById('logo-separate-bed-row');
@@ -330,6 +343,7 @@ export async function rebuildSignCAD() {
     const hasRightOnSign = placeOnSign && rightLogoKey !== 'none';
     let activeTextShiftX = 0;
     let shelfClipH = 32; // Alto real de la placa del canto de anaquel (lo usa también el subtítulo)
+    let activeWedgeMeta = null;
 
     // =====================================================================
     // ESTILO 1: BLOQUES MODULARES (MAKER) — INTACTO
@@ -337,7 +351,7 @@ export async function rebuildSignCAD() {
     if (cadState.style === 'modular') {
         let cursorX = 0;
         const blockPadX = 10;
-        const blockH = letterSize * 1.62;
+        const blockH = Math.max(plateYSize * 1.62, letterSize * 1.45);
 
         letterItems.forEach((item, idx) => {
             if (item.isSpace) {
@@ -396,7 +410,7 @@ export async function rebuildSignCAD() {
     else if (cadState.style === 'solid') {
         let cursorX = 0;
         const padX = 6.5;
-        const baseMonoH = letterSize * 1.46;
+        const baseMonoH = Math.max(plateYSize * 1.46, letterSize * 1.35);
         const collarDepth = Math.max(1.4, letterDepth * 0.32);
         const plinthY = -baseMonoH / 2 - 2.0;
 
@@ -482,7 +496,7 @@ export async function rebuildSignCAD() {
                     return;
                 }
                 const blockW = Math.max(item.width + 26, letterSize * 1.52);
-                const blockH = letterSize * 1.88;
+                const blockH = Math.max(plateYSize, letterSize) * 1.88;
                 const centerX = cursorX + blockW / 2;
 
                 const ornate = createOrnateFrameMeshes(blockW, blockH, baseDepth, letterDepth, matBase, matAccent);
@@ -510,7 +524,7 @@ export async function rebuildSignCAD() {
             // 1. Primera letra en Gran Cartela Clásica con Frontón, Pilastras Estriadas y 4 Rosetones Florales
             const firstItem = letterItems[0];
             const dropW = Math.max(firstItem.width + 28, letterSize * 1.62);
-            const dropH = letterSize * 1.92;
+            const dropH = Math.max(plateYSize, letterSize) * 1.92;
             const dropCenterX = dropW / 2;
 
             const ornate = createOrnateFrameMeshes(dropW, dropH, baseDepth * 1.12, letterDepth, matBase, matAccent);
@@ -556,7 +570,7 @@ export async function rebuildSignCAD() {
             const bodyTextSpan = Math.max(30, bodyCursorX - bodyStartX - spacing);
             const ansaExtraW = 28;
             const ansataW = bodyTextSpan + 24 + ansaExtraW;
-            const ansataH = showSub && subText ? letterSize * 1.68 : letterSize * 1.48;
+            const ansataH = showSub && subText ? Math.max(plateYSize, letterSize) * 1.68 : Math.max(plateYSize, letterSize) * 1.48;
             const ansataCenterX = dropW - 2 + ansataW / 2;
 
             const tabula = createTabulaAnsataAssembly(ansataW, ansataH, baseDepth, letterDepth, matBase, matAccent);
@@ -603,11 +617,13 @@ export async function rebuildSignCAD() {
         const isMultiLine = plaqueLines.length > 1;
 
         // Proporción de tamaño si son 2 o más líneas para mantener proporción y elegancia
-        const effectiveLetterSize = isMultiLine ? Math.max(12, Math.round(letterSize * 0.78)) : letterSize;
+        const effectiveLetterSize = isMultiLine ? Math.max(8, Math.round(letterSize * 0.78)) : letterSize;
+        const effBevelPlaque = effectiveLetterSize < 18 ? Math.min(bevelSize, effectiveLetterSize * 0.04) : bevelSize;
+        const effSpacingPlaque = effectiveLetterSize < plateYSize ? Math.max(0.8, spacing * (effectiveLetterSize / plateYSize)) : spacing;
 
         // Construir glifos 3D de cada línea
         const builtLines = plaqueLines.map(lineStr =>
-            buildLineGlyphItems(otFont, lineStr, effectiveLetterSize, letterDepth, bevelSize, spacing)
+            buildLineGlyphItems(otFont, lineStr, effectiveLetterSize, letterDepth, effBevelPlaque, effSpacingPlaque)
         );
 
         // Medir ancho máximo requerido por las líneas
@@ -616,12 +632,13 @@ export async function rebuildSignCAD() {
         const accentBarW = isFiletPlaque ? 0 : 16;
         const accentBarMargin = isFiletPlaque ? 0 : 5;
 
-        // Altura automática según líneas e inclusión de subtítulo
+        // Altura automática según líneas, Alto de Placa (Tamaño Y) e inclusión de subtítulo
         const lineStep = effectiveLetterSize * 1.25;
         const totalTextH = (plaqueLines.length - 1) * lineStep + effectiveLetterSize;
+        const refPlateHBasis = Math.max(plateYSize, letterSize);
         const autoPlaqueH = isMultiLine
-            ? Math.round(totalTextH + (showSub && subText ? subSizeVal * 2.2 + subGapVal : 28))
-            : Math.round(showSub && subText ? letterSize * 2.15 : letterSize * 1.65);
+            ? Math.round(Math.max(plateYSize * 1.65, totalTextH + (showSub && subText ? subSizeVal * 2.2 + subGapVal : 28)))
+            : Math.round(showSub && subText ? refPlateHBasis * 2.15 : refPlateHBasis * 1.65);
 
         // En la Placa Filete el escudo debe quedar dentro del marco (no pisarlo)
         const logoVerticalClear = isFiletPlaque ? (filetInset + filetStroke + 2.5) * 2 : 10;
@@ -640,12 +657,12 @@ export async function rebuildSignCAD() {
 
         const autoPlaqueW = Math.round(maxLineW + padX * 2 + accentBarW + leftReserve + rightReserve);
 
-        // Si el slider no ha sido ajustado manualmente por el usuario o es menor al texto, adaptarse al texto
-        if (customWidthInput && (!customWidthInput.dataset.touched || parseFloat(customWidthInput.value) < autoPlaqueW)) {
+        // Si el slider no ha sido ajustado manualmente por el usuario, adaptarse automáticamente
+        if (customWidthInput && !customWidthInput.dataset.touched) {
             customWidthInput.min = Math.min(100, autoPlaqueW);
             customWidthInput.value = autoPlaqueW;
         }
-        if (customHeightInput && (!customHeightInput.dataset.touched || parseFloat(customHeightInput.value) < autoPlaqueH)) {
+        if (customHeightInput && !customHeightInput.dataset.touched) {
             customHeightInput.value = autoPlaqueH;
         }
 
@@ -679,7 +696,7 @@ export async function rebuildSignCAD() {
 
             const lineY = (isMultiLine
                 ? ((plaqueLines.length - 1) / 2 - lineIdx) * lineStep + (showSub && subText ? subSizeVal * 0.7 : 0)
-                : (showSub && subText ? letterSize * 0.18 : -letterSize * 0.05)
+                : (showSub && subText ? Math.max(plateYSize, letterSize) * 0.18 : -letterSize * 0.05)
             ) + userTextOffsetY;
 
             lineObj.items.forEach(item => {
@@ -703,7 +720,7 @@ export async function rebuildSignCAD() {
                 lMesh.castShadow = true;
                 lettersGroup.add(lMesh);
 
-                lineCursorX += item.width + spacing;
+                lineCursorX += item.width + effSpacingPlaque;
                 globalCharIdx++;
             });
         });
@@ -804,9 +821,10 @@ export async function rebuildSignCAD() {
             const isLeftSide = side === 'left';
             // En la Placa Filete el escudo se separa igual de ambos bordes, por dentro del marco
             const sideGap = isFiletPlaque ? 12 : null;
-            const lx = isLeftSide
+            const userLogoShift = isLeftSide ? logoLeftOffsetX : logoRightOffsetX;
+            const lx = (isLeftSide
                 ? (centerPlaqueX - plaqueW / 2 + accentBarW + (sideGap ?? 13) + effLogoDia / 2)
-                : (centerPlaqueX + plaqueW / 2 - (sideGap ?? 10) - effLogoDia / 2);
+                : (centerPlaqueX + plaqueW / 2 - (sideGap ?? 10) - effLogoDia / 2)) + userLogoShift;
             const shiftX = 0;
 
             if (logoMode === 'integrated') {
@@ -841,15 +859,15 @@ export async function rebuildSignCAD() {
         const padX = 24;
         const autoClipW = Math.round(Math.max(totalW_approx + padX * 2, 80));
         // Asegurar alto mínimo de 32 mm para alojar detrás la pinza de balda de 19 mm
-        const autoClipH = Math.round(Math.max(32, showSub && subText ? letterSize * 1.95 : letterSize * 1.45));
+        const autoClipH = Math.round(Math.max(32, showSub && subText ? Math.max(plateYSize, letterSize) * 1.95 : Math.max(plateYSize, letterSize) * 1.45));
 
-        // Medidas personalizables (igual que la Placa Wayfinding): nunca menores a lo que pide el texto
+        // Medidas personalizables (igual que la Placa Wayfinding)
         const shelfWInput = document.getElementById('param-shelf-width');
         const shelfHInput = document.getElementById('param-shelf-height');
-        if (shelfWInput && (!shelfWInput.dataset.touched || parseFloat(shelfWInput.value) < autoClipW)) {
+        if (shelfWInput && !shelfWInput.dataset.touched) {
             shelfWInput.value = autoClipW;
         }
-        if (shelfHInput && (!shelfHInput.dataset.touched || parseFloat(shelfHInput.value) < autoClipH)) {
+        if (shelfHInput && !shelfHInput.dataset.touched) {
             shelfHInput.value = autoClipH;
         }
         const clipW = shelfWInput ? parseFloat(shelfWInput.value) : autoClipW;
@@ -898,7 +916,7 @@ export async function rebuildSignCAD() {
     }
 
     // =====================================================================
-    // ESTILO 6 REDISEÑADO: CUÑA EJECUTIVA DE ESCRITORIO (Menos inclinada para Coordinadores y Jefatura)
+    // ESTILO 6 REDISEÑADO: CUÑA INCLINADA (hasta 45°, radio esquinas, división por partes, sin barras laterales)
     // =====================================================================
     else if (cadState.style === 'wedge') {
         // Liberar geometrías de 1 línea no usadas si se reconstruyen en multilínea
@@ -907,71 +925,184 @@ export async function rebuildSignCAD() {
         const angleInput = document.getElementById('param-wedge-angle');
         const angleDeg = angleInput ? parseFloat(angleInput.value) : 12;
         const lblAngle = document.getElementById('lbl-wedge-angle');
-        if (lblAngle) lblAngle.textContent = `${angleDeg}° (Suave Escritorio)`;
+        if (lblAngle) {
+            const angleLabel = angleDeg <= 18 ? 'Suave Escritorio' : (angleDeg <= 30 ? 'Media' : 'Pronunciada');
+            lblAngle.textContent = `${angleDeg}° (${angleLabel})`;
+        }
+
+        const customWidthInput = document.getElementById('param-wedge-width');
+        const customHeightInput = document.getElementById('param-wedge-height');
+        const radiusInput = document.getElementById('param-wedge-radius');
+        const splitToggle = document.getElementById('wedge-split-toggle');
+        const gapInput = document.getElementById('param-wedge-gap');
+
+        const wedgeRadius = radiusInput ? parseFloat(radiusInput.value) : 4;
+        const isSplit = splitToggle ? splitToggle.checked : false;
+        const splitControlsEl = document.getElementById('wedge-split-controls');
+        if (splitControlsEl) splitControlsEl.classList.toggle('hidden', !isSplit);
+        const splitGap = (isSplit && gapInput) ? parseFloat(gapInput.value) : 0;
+
+        const approxBaseH = Math.max(46, Math.round(showSub && subText ? Math.max(plateYSize, letterSize) * 2.05 : Math.max(plateYSize, letterSize) * 1.58));
+        const prelimH = (customHeightInput?.dataset?.touched) ? parseFloat(customHeightInput.value) : approxBaseH;
+        const prelimLogoDia = Math.min(logoSizeVal, Math.max(24, prelimH - 12));
+        const prelimLeftRes = hasLeftOnSign ? (prelimLogoDia + 8) : 0;
+        const prelimRightRes = hasRightOnSign ? (prelimLogoDia + 8) : 0;
 
         const multiToggle = document.getElementById('wedge-multiline-toggle');
         const autoWrap = multiToggle ? multiToggle.checked : true;
-        const textLines = splitTextIntoLines(rawText, autoWrap);
+        const hasExplicitBreak = rawText.includes('\n') || rawText.includes('/') || rawText.includes('|');
+
+        const padX = (hasLeftOnSign || hasRightOnSign) ? 12 : 18;
+        const maxBedTextW = Math.max(70, 246 - padX * 2 - prelimLeftRes - prelimRightRes);
+        const effSingleBevel = letterSize < 18 ? Math.min(bevelSize, letterSize * 0.04) : bevelSize;
+        const effSingleSpacing = (letterSize < plateYSize ? Math.max(0.8, spacing * (letterSize / plateYSize)) : spacing) * 0.85;
+
+        let textLines;
+        let prebuiltSingle = null;
+        if (hasExplicitBreak || !autoWrap) {
+            textLines = splitTextIntoLines(rawText, false);
+        } else {
+            // Solo dividir en 2 líneas si el texto en 1 línea a tamaño `letterSize` no cabe en el ancho disponible
+            prebuiltSingle = buildLineGlyphItems(otFont, rawText, letterSize, letterDepth, effSingleBevel, effSingleSpacing);
+            const availW = customWidthInput?.dataset?.touched
+                ? Math.max(60, parseFloat(customWidthInput.value) - padX * 2 - prelimLeftRes - prelimRightRes)
+                : (isSplit ? 2000 : maxBedTextW);
+            const wrapThreshold = (titleSizeEl?.dataset?.touched && letterSize < plateYSize) ? availW * 1.35 : availW;
+            if (prebuiltSingle.totalW > wrapThreshold && rawText.includes(' ')) {
+                prebuiltSingle.items.forEach(it => { if (it.geometry) it.geometry.dispose(); });
+                prebuiltSingle = null;
+                textLines = splitTextIntoLines(rawText, true);
+            } else {
+                textLines = [rawText];
+            }
+        }
+
         const isTwoLines = textLines.length >= 2;
+        const effectiveLetterSize = isTwoLines ? Math.max(8, Math.round(letterSize * 0.72)) : letterSize;
+        const effWedgeBevel = effectiveLetterSize < 18 ? Math.min(bevelSize, effectiveLetterSize * 0.04) : bevelSize;
+        const effWedgeSpacing = (effectiveLetterSize < plateYSize ? Math.max(0.8, spacing * (effectiveLetterSize / plateYSize)) : spacing) * 0.85;
+        const builtLines = (textLines.length === 1 && prebuiltSingle)
+            ? [prebuiltSingle]
+            : textLines.map(lineStr => buildLineGlyphItems(otFont, lineStr, effectiveLetterSize, letterDepth, effWedgeBevel, effWedgeSpacing));
 
-        // Ajustar tamaño de letra si son 2 líneas para que luzca proporcionado en escritorio
-        const effectiveLetterSize = isTwoLines ? Math.max(12, Math.round(letterSize * 0.72)) : letterSize;
-        const builtLines = textLines.map(lineStr =>
-            buildLineGlyphItems(otFont, lineStr, effectiveLetterSize, letterDepth, bevelSize, spacing * 0.85)
-        );
+        const lineStepRef = effectiveLetterSize * 1.28;
+        const twoLineSpan = (textLines.length - 1) * lineStepRef + effectiveLetterSize;
+        const refBasis = Math.max(plateYSize, letterSize);
+        const autoWedgeH = Math.max(46, Math.round(
+            isTwoLines
+                ? Math.max(plateYSize * 2.05, twoLineSpan + (showSub && subText ? subSizeVal * 2.2 + subGapVal + 18 : 26), showSub && subText ? refBasis * 2.45 : refBasis * 2.05)
+                : (showSub && subText ? refBasis * 2.05 : refBasis * 1.58)
+        ));
 
-        const baseWedgeH = isTwoLines
-            ? (showSub && subText ? letterSize * 2.45 : letterSize * 2.05)
-            : (showSub && subText ? letterSize * 2.05 : letterSize * 1.58);
-        const wedgeH = Math.max(46, baseWedgeH);
+        if (customHeightInput && !customHeightInput.dataset.touched) {
+            customHeightInput.value = autoWedgeH;
+        }
+        const wedgeH = customHeightInput ? parseFloat(customHeightInput.value) : autoWedgeH;
 
         const effLogoDia = Math.min(logoSizeVal, Math.max(24, wedgeH - 12));
-        const leftReserve = hasLeftOnSign ? (effLogoDia + 12) : 0;
-        const rightReserve = hasRightOnSign ? (effLogoDia + 12) : 0;
+        const leftReserve = hasLeftOnSign ? (effLogoDia + 8) : 0;
+        const rightReserve = hasRightOnSign ? (effLogoDia + 8) : 0;
         activeTextShiftX = (leftReserve - rightReserve) / 2;
 
         const maxRawLineW = Math.max(...builtLines.map(b => b.totalW), 50);
-        // Mantener el ancho total de la cuña dentro de ~242 mm para que quepa en la cama de 25 cm incluso con 2 escudos
-        const maxAllowedTextW = Math.max(92, 206 - (leftReserve + rightReserve) * 0.82);
+        const maxAllowedTextW = (isSplit || customWidthInput?.dataset?.touched)
+            ? 2000
+            : Math.max(70, 246 - padX * 2 - leftReserve - rightReserve);
         const fitScale = maxRawLineW > maxAllowedTextW ? (maxAllowedTextW / maxRawLineW) : 1.0;
         const finalTextW = maxRawLineW * fitScale;
 
-        const padX = 28;
-        const wedgeW = Math.max(finalTextW + padX * 2 + leftReserve + rightReserve, 120);
+        const autoWedgeW = Math.max(120, Math.round(finalTextW + padX * 2 + leftReserve + rightReserve));
+
+        if (customWidthInput && !customWidthInput.dataset.touched) {
+            customWidthInput.value = autoWedgeW;
+        }
+        const wedgeW = customWidthInput ? parseFloat(customWidthInput.value) : autoWedgeW;
         const centerWedgeX = 0;
+
+        const lblWW = document.getElementById('lbl-wedge-width');
+        const lblWH = document.getElementById('lbl-wedge-height');
+        const lblWR = document.getElementById('lbl-wedge-radius');
+        const lblWGap = document.getElementById('lbl-wedge-gap');
+        if (lblWW) lblWW.textContent = `${Math.round(wedgeW)} mm`;
+        if (lblWH) lblWH.textContent = `${Math.round(wedgeH)} mm`;
+        if (lblWR) lblWR.textContent = `${wedgeRadius} mm`;
+        if (lblWGap) lblWGap.textContent = `${splitGap} mm`;
 
         const alphaRad = (angleDeg * Math.PI) / 180;
         const frontLipZ = Math.max(4.2, baseDepth * 0.72);
         const backHeightZ = frontLipZ + wedgeH * Math.tan(alphaRad);
 
-        const assembly = createAngledWedgeAssembly(wedgeW, wedgeH, frontLipZ, backHeightZ);
-        assembly.baseGeo.translate(centerWedgeX, 0, 0);
+        const assembly = createAngledWedgeAssembly(wedgeW, wedgeH, frontLipZ, backHeightZ, {
+            cornerRadius: wedgeRadius,
+            forSegmentation: isSplit
+        });
+
+        activeWedgeMeta = {
+            wedgeW,
+            wedgeH,
+            alpha: assembly.alpha,
+            tanAlpha: assembly.tanAlpha,
+            frontLipZ,
+            hy: assembly.hy,
+            isSplit
+        };
 
         // Sin el control (p. ej. visor de jefatura) se muestra como va en el escritorio
         if (document.getElementById('wedge-print-flat-toggle')?.checked) {
             wedgePrintTiltRad = assembly.alpha;
         }
 
-        const baseMesh = new THREE.Mesh(assembly.baseGeo, matBase);
-        baseMesh.name = "Cuna_Ejecutiva_Escritorio_Base";
-        baseMesh.castShadow = true;
-        baseMesh.receiveShadow = true;
-        baseGroup.add(baseMesh);
+        if (!isSplit) {
+            assembly.baseGeo.translate(centerWedgeX, 0, 0);
+            const baseMesh = new THREE.Mesh(assembly.baseGeo, matBase);
+            baseMesh.name = "Cuna_Ejecutiva_Escritorio_Base";
+            baseMesh.castShadow = true;
+            baseMesh.receiveShadow = true;
+            baseGroup.add(baseMesh);
 
-        if (assembly.frameGeo) {
-            assembly.frameGeo.translate(centerWedgeX, 0, explodeZ * 0.45);
-            const frameMesh = new THREE.Mesh(assembly.frameGeo, matAccent);
-            frameMesh.name = "Marco_Ejecutivo_Cuna";
-            frameMesh.castShadow = true;
-            accentsGroup.add(frameMesh);
+            if (assembly.frameGeo) {
+                assembly.frameGeo.translate(centerWedgeX, 0, explodeZ * 0.45);
+                const frameMesh = new THREE.Mesh(assembly.frameGeo, matAccent);
+                frameMesh.name = "Marco_Ejecutivo_Cuna";
+                frameMesh.castShadow = true;
+                accentsGroup.add(frameMesh);
+            }
+        } else {
+            assembly.frameCaps.forEach(cap => {
+                cap.geo.translate(0, 0, explodeZ * 0.45);
+                const capMesh = new THREE.Mesh(cap.geo, matAccent);
+                capMesh.name = `Marco_Cuna_Remate_${cap.side === 'left' ? 'Izquierdo' : 'Derecho'}`;
+                capMesh.castShadow = true;
+                accentsGroup.add(capMesh);
+            });
+
+            pendingSlab = {
+                minX: -wedgeW / 2,
+                maxX: wedgeW / 2,
+                height: wedgeH,
+                depth: frontLipZ,
+                radius: wedgeRadius,
+                wedge: { frontLipZ, tanAlpha: assembly.tanAlpha },
+                matBase,
+                matAccent,
+                namePrefix: 'Cuna',
+                baseExtras: [],
+                rails: assembly.rails.map(r => ({
+                    ...r,
+                    centerZ: r.centerZ + explodeZ * 0.45,
+                    mat: matAccent,
+                    group: accentsGroup
+                }))
+            };
         }
 
-        // Integrar Escudos Institucionales o Cajeados Guía sobre la rampa inclinada de la Cuña Ejecutiva
+        // Integrar Escudos Institucionales o Cajeados Guía sobre la rampa inclinada de la Cuña Inclinada
         const addWedgeSideLogo = (key, side) => {
             const isLeftSide = side === 'left';
-            const lx = isLeftSide
-                ? (-wedgeW / 2 + 15 + effLogoDia / 2)
-                : (wedgeW / 2 - 15 - effLogoDia / 2);
+            const userLogoShift = isLeftSide ? logoLeftOffsetX : logoRightOffsetX;
+            const lx = (isLeftSide
+                ? (-wedgeW / 2 + 10 + effLogoDia / 2)
+                : (wedgeW / 2 - 10 - effLogoDia / 2)) + userLogoShift;
             const ly = 0;
             const lz = frontLipZ + (ly + assembly.hy) * assembly.tanAlpha;
 
@@ -999,7 +1130,7 @@ export async function rebuildSignCAD() {
         if (hasLeftOnSign) addWedgeSideLogo(leftLogoKey, 'left');
         if (hasRightOnSign) addWedgeSideLogo(rightLogoKey, 'right');
 
-        // Posicionar 1 o 2 líneas de letras apoyadas exactamente sobre la rampa de ángulo suave
+        // Posicionar 1 o 2 líneas de letras apoyadas exactamente sobre la rampa
         const scaledCapH = effectiveLetterSize * fitScale;
         const lineStepY = scaledCapH * 1.38;
         const blockCenterY = (showSub && subText) ? (wedgeH * 0.14) : 0;
@@ -1031,7 +1162,7 @@ export async function rebuildSignCAD() {
                 lMesh.castShadow = true;
                 lettersGroup.add(lMesh);
 
-                cursorX += charW + (spacing * 0.85 * fitScale);
+                cursorX += charW + (effWedgeSpacing * fitScale);
             });
         });
     }
@@ -1055,18 +1186,19 @@ export async function rebuildSignCAD() {
         // Dividir texto en 1 o 2 líneas centradas (como "Sección / de Periódicos" o "Folletos / Sección Guatemala")
         const textLines = splitTextIntoLines(rawText, true);
         const isTwoLines = textLines.length >= 2;
-        const effectiveLetterSize = isTwoLines ? Math.max(12, Math.round(letterSize * 0.76)) : letterSize;
+        const effectiveLetterSize = isTwoLines ? Math.max(8, Math.round(letterSize * 0.76)) : letterSize;
 
         const builtLines = textLines.map(lineStr =>
             buildLineGlyphItems(otFont, lineStr, effectiveLetterSize, letterDepth, bevelSize, spacing * 0.88)
         );
 
+        const refCeilingBasis = Math.max(plateYSize, letterSize);
         const autoPanelH = Math.max(78, Math.round(
             isTwoLines
-                ? (showSub && subText ? letterSize * 2.75 : letterSize * 2.35)
-                : (showSub && subText ? letterSize * 2.3 : letterSize * 1.95)
+                ? (showSub && subText ? refCeilingBasis * 2.75 : refCeilingBasis * 2.35)
+                : (showSub && subText ? refCeilingBasis * 2.3 : refCeilingBasis * 1.95)
         ));
-        if (customHeightInput && (!customHeightInput.dataset.touched || parseFloat(customHeightInput.value) < autoPanelH)) {
+        if (customHeightInput && !customHeightInput.dataset.touched) {
             customHeightInput.value = autoPanelH;
         }
         const panelH = customHeightInput ? parseFloat(customHeightInput.value) : autoPanelH;
@@ -1086,7 +1218,7 @@ export async function rebuildSignCAD() {
 
         const autoPanelW = Math.max(160, Math.round(finalTextW + 38 + leftReserve + rightReserve));
 
-        if (customWidthInput && (!customWidthInput.dataset.touched || parseFloat(customWidthInput.value) < autoPanelW)) {
+        if (customWidthInput && !customWidthInput.dataset.touched) {
             customWidthInput.value = autoPanelW;
         }
 
@@ -1147,9 +1279,10 @@ export async function rebuildSignCAD() {
         // Integrar Escudos Institucionales (USAC / Biblioteca Central) o Cajeados Guía a los lados del Colgante de Techo
         const addCeilingSideLogo = (key, side) => {
             const isLeftSide = side === 'left';
-            const lx = isLeftSide
+            const userLogoShift = isLeftSide ? logoLeftOffsetX : logoRightOffsetX;
+            const lx = (isLeftSide
                 ? (-panelW / 2 + 12 + effLogoDia / 2)
-                : (panelW / 2 - 12 - effLogoDia / 2);
+                : (panelW / 2 - 12 - effLogoDia / 2)) + userLogoShift;
             const shiftX = 0;
 
             if (logoMode === 'integrated') {
@@ -1226,36 +1359,47 @@ export async function rebuildSignCAD() {
             const mainCenterX = (tempBox.min.x + tempBox.max.x) / 2 + activeTextShiftX;
 
             // Manejo específico según el estilo para asegurar que NUNCA flote nada
-            if (cadState.style === 'wedge') {
-                // En cuña ejecutiva de escritorio: Se rota por el mismo ángulo suave y se coloca en la parte baja de la rampa
-                const angleInput = document.getElementById('param-wedge-angle');
-                const angleDeg = angleInput ? parseFloat(angleInput.value) : 12;
-                const multiToggle = document.getElementById('wedge-multiline-toggle');
-                const autoWrap = multiToggle ? multiToggle.checked : true;
-                const isTwoLines = splitTextIntoLines(rawText, autoWrap).length >= 2;
-
-                const wedgeH = Math.max(42, isTwoLines ? letterSize * 2.45 : letterSize * 2.05);
-                const frontLipZ = Math.max(4.2, baseDepth * 0.72);
-                const tanAlpha = Math.tan((angleDeg * Math.PI) / 180);
-                const alpha = Math.atan(tanAlpha);
-                const hy = wedgeH / 2;
+            if (cadState.style === 'wedge' && activeWedgeMeta) {
+                const { wedgeW, wedgeH, alpha, tanAlpha, frontLipZ, hy, isSplit } = activeWedgeMeta;
 
                 const subY = -hy + 7.5 + subGapVal;
                 const subZ = frontLipZ + (subY + hy) * tanAlpha;
 
-                // Escalar subtítulo si excede el ancho de la cuña
-                const maxSubW = Math.max(80, (tempBox.max.x - tempBox.min.x) - 34);
+                const maxSubW = Math.max(80, wedgeW - 28);
                 const subScale = sw > maxSubW ? (maxSubW / sw) : 1.0;
-                if (subScale < 0.999) {
-                    subGeo.scale(subScale, subScale, 1.0);
+
+                if (!isSplit) {
+                    if (subScale < 0.999) {
+                        subGeo.scale(subScale, subScale, 1.0);
+                    }
+                    subGeo.rotateX(alpha);
+                    subGeo.translate((-sbb.min.x - sw / 2) * subScale + mainCenterX, subY, subZ + explodeZ * 0.5);
+
+                    const subMesh = new THREE.Mesh(subGeo, matSubText);
+                    subMesh.name = "Subtitulo_Clasificacion_Dewey";
+                    accentsGroup.add(subMesh);
+                } else {
+                    subGeo.dispose();
+                    const subChars = Array.from(subText);
+                    let subCursorX = (-sw / 2) * subScale + mainCenterX;
+                    subChars.forEach((ch, idx) => {
+                        const cGeo = createUTF8CharExtrudeGeometry(subOtFont || otFont, ch, subSize * subScale, subDepth, 0);
+                        if (!cGeo) {
+                            subCursorX += subSize * subScale * 0.35;
+                            return;
+                        }
+                        const cbb = cGeo.boundingBox;
+                        const cw = cbb.max.x - cbb.min.x;
+                        const charCenterX = subCursorX + cw / 2;
+                        cGeo.translate(-cbb.min.x - cw / 2, -cbb.min.y - (cbb.max.y - cbb.min.y) / 2, 0);
+                        cGeo.rotateX(alpha);
+                        cGeo.translate(charCenterX, subY, subZ + explodeZ * 0.5);
+                        const cMesh = new THREE.Mesh(cGeo, matSubText);
+                        cMesh.name = `Subtitulo_${idx + 1}_${ch}`;
+                        accentsGroup.add(cMesh);
+                        subCursorX += cw + 1.2 * subScale;
+                    });
                 }
-
-                subGeo.rotateX(alpha);
-                subGeo.translate((-sbb.min.x - sw / 2) * subScale + mainCenterX, subY, subZ + explodeZ * 0.5);
-
-                const subMesh = new THREE.Mesh(subGeo, matSubText);
-                subMesh.name = "Subtitulo_Clasificacion_Dewey";
-                accentsGroup.add(subMesh);
             } else if (cadState.style === 'ceiling') {
                 // En colgante de techo: ubicado en la parte inferior del panel sobre el riel de aluminio inferior
                 const panelH = tempBox.max.y - tempBox.min.y;
@@ -1309,7 +1453,7 @@ export async function rebuildSignCAD() {
                 const lineStep = effectiveLetterSize * 1.25;
                 const totalTextH = (plaqueLines.length - 1) * lineStep + effectiveLetterSize;
 
-                const subY = (isMultiLine ? -totalTextH / 2 - subSizeVal * 0.82 : -letterSize * 0.56) + subGapVal + userTextOffsetY;
+                const subY = (isMultiLine ? -totalTextH / 2 - subSizeVal * 0.82 : -Math.max(plateYSize, letterSize) * 0.56) + subGapVal + userTextOffsetY;
                 const splitToggle = document.getElementById('plaque-split-toggle');
                 const isSplit = splitToggle ? splitToggle.checked : false;
                 const gapInput = document.getElementById('param-plaque-gap');
@@ -1518,11 +1662,11 @@ export async function rebuildSignCAD() {
  * Lee qué panel de división está activo (Placa o Colgante de Techo)
  */
 function getSplitControls() {
-    const isCeiling = cadState.style === 'ceiling';
+    const prefix = cadState.style === 'ceiling' ? 'ceiling' : (cadState.style === 'wedge' ? 'wedge' : 'plaque');
     return {
-        gap: parseFloat(document.getElementById(isCeiling ? 'param-ceiling-gap' : 'param-plaque-gap')?.value || 0),
-        bedView: document.getElementById(isCeiling ? 'ceiling-bed-view-toggle' : 'plaque-bed-view-toggle')?.checked ?? false,
-        infoEl: document.getElementById(isCeiling ? 'ceiling-split-info' : 'plaque-split-info')
+        gap: parseFloat(document.getElementById(`param-${prefix}-gap`)?.value || 0),
+        bedView: document.getElementById(`${prefix}-bed-view-toggle`)?.checked ?? false,
+        infoEl: document.getElementById(`${prefix}-split-info`)
     };
 }
 
@@ -1540,9 +1684,19 @@ function applySlabSegmentation(slab) {
     slab.baseExtras.forEach(g => { const b = boxOf(g); obstacles.push([b.min.x, b.max.x]); });
 
     const { cuts, throughText } = planCuts({ minX: slab.minX, maxX: slab.maxX, obstacles, maxPartW });
-    const parts = buildSegmentedSlab({
-        minX: slab.minX, maxX: slab.maxX, height: slab.height, depth: slab.depth, radius: slab.radius, cuts
-    });
+    const parts = slab.wedge
+        ? buildSegmentedWedge({
+            minX: slab.minX,
+            maxX: slab.maxX,
+            height: slab.height,
+            frontLipZ: slab.wedge.frontLipZ,
+            tanAlpha: slab.wedge.tanAlpha,
+            radius: slab.radius,
+            cuts
+        })
+        : buildSegmentedSlab({
+            minX: slab.minX, maxX: slab.maxX, height: slab.height, depth: slab.depth, radius: slab.radius, cuts
+        });
     const partIndexAt = x => {
         const k = cuts.findIndex(c => x < c);
         return k === -1 ? cuts.length : k;
@@ -1565,14 +1719,20 @@ function applySlabSegmentation(slab) {
         });
 
         // Rieles decorativos cortados exactamente en la costura
-        // (opcional por riel: tramo x0..x1, altura z, radio, material y grupo propios — p. ej. el filete)
+        // (opcional por riel: tramo x0..x1, altura z, radio, material y grupo propios — p. ej. el filete o marco de cuña)
         slab.rails.forEach(rail => {
             const rx0 = Math.max(part.x0, rail.x0 ?? -Infinity);
             const rx1 = Math.min(part.x1, rail.x1 ?? Infinity);
             const w = rx1 - rx0;
             if (w < 0.5) return;
             const g = createRoundedBoxGeometry(w, rail.h, rail.d, rail.radius ?? 1.5);
-            g.translate((rx0 + rx1) / 2, rail.y, rail.z ?? slab.depth);
+            if (rail.rotX != null) {
+                g.translate((rx0 + rx1) / 2, rail.sY, 0);
+                g.rotateX(rail.rotX);
+                g.translate(0, 0, rail.centerZ ?? slab.depth);
+            } else {
+                g.translate((rx0 + rx1) / 2, rail.y, rail.z ?? slab.depth);
+            }
             const m = new THREE.Mesh(g, rail.mat ?? slab.matAccent);
             m.name = `${rail.name}_Parte${k + 1}`;
             m.userData.part = k;
@@ -1664,15 +1824,17 @@ export function fitSignTo25cmBed(maxTargetWidthMm = 245) {
     }
 }
 
-function updateParamLabels(letterSize, baseDepth, letterDepth, bevelSize, spacing) {
+function updateParamLabels(plateYSize, titleSize, baseDepth, letterDepth, bevelSize, spacing) {
     const elSize = document.getElementById('lbl-letter-size');
+    const elTitleSize = document.getElementById('lbl-title-size');
     const elBase = document.getElementById('lbl-base-depth');
     const elDepth = document.getElementById('lbl-letter-depth');
     const elBevel = document.getElementById('lbl-bevel');
     const elSpacing = document.getElementById('lbl-spacing');
     const elZSwap = document.getElementById('z-swap-info');
 
-    if (elSize) elSize.textContent = `${letterSize} mm`;
+    if (elSize) elSize.textContent = `${plateYSize} mm`;
+    if (elTitleSize) elTitleSize.textContent = `${titleSize} mm`;
     if (elBase) elBase.textContent = `${baseDepth} mm`;
     if (elDepth) elDepth.textContent = `${letterDepth} mm`;
     if (elBevel) elBevel.textContent = `${bevelSize.toFixed(1)} mm`;
@@ -1746,7 +1908,7 @@ function updateCADMetrics(widthMm, heightMm, depthMm) {
                 : 'p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 leading-snug';
         }
     } else if (isOverBed) {
-        const canSplit = cadState.style === 'plaque' || cadState.style === 'plaque_filet' || cadState.style === 'ceiling';
+        const canSplit = cadState.style === 'plaque' || cadState.style === 'plaque_filet' || cadState.style === 'ceiling' || cadState.style === 'wedge';
         setAlert(false, `⚠️ Excede cama 25 cm (${Math.max(w, h)} mm)${canSplit ? ' • Activa "División automática por partes"' : ''}`);
     } else {
         setAlert(true, `✅ Cabe en placa de 25 cm (250 mm)`);
